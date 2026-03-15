@@ -1,3 +1,4 @@
+import { getSupabaseService } from "@/lib/db/client";
 import { createClient } from "@/lib/db/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -43,18 +44,21 @@ export async function POST(request: NextRequest) {
     const type = validOrgTypes.includes(org_type) ? org_type : "other";
     const sectorArray = Array.isArray(sectors) ? sectors : [];
 
-    const { data: org, error } = await supabase
+    const insertPayload = {
+      name: name.trim(),
+      slug,
+      org_type: type,
+      location_region: location_region ?? null,
+      annual_income_band: annual_income_band ?? null,
+      sectors: sectorArray,
+      funding_goals: funding_goals ?? null,
+      created_by: user.id,
+    };
+
+    const serviceSupabase = getSupabaseService();
+    const { data: org, error } = await serviceSupabase
       .from("organisations")
-      .insert({
-        name: name.trim(),
-        slug,
-        org_type: type,
-        location_region: location_region ?? null,
-        annual_income_band: annual_income_band ?? null,
-        sectors: sectorArray,
-        funding_goals: funding_goals ?? null,
-        created_by: user.id,
-      })
+      .insert(insertPayload)
       .select("id")
       .single();
 

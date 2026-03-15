@@ -6,6 +6,7 @@
 import type { FitBreakdown, FitScore, OrgProfile, Opportunity } from "./types";
 
 const COMPONENT_MAX = 25;
+const UNKNOWN_SCORE = 12.5; // When a filter is empty, treat as unknown (50 total if all empty)
 const WEEKS_FOR_FULL_DEADLINE = 3;
 
 function normaliseStringList(
@@ -31,7 +32,7 @@ function scoreLocation(org: OrgProfile, opportunity: Opportunity): number {
   if (!orgRegion) return COMPONENT_MAX; // No org region: assume eligible
 
   const allowed = normaliseStringList(opportunity.location_filters);
-  if (allowed.length === 0) return COMPONENT_MAX; // No filter: UK-wide
+  if (allowed.length === 0) return Math.round(UNKNOWN_SCORE); // Unknown: not a perfect match
 
   const ukWide = allowed.some(
     (r) =>
@@ -74,7 +75,7 @@ function scoreSector(org: OrgProfile, opportunity: Opportunity): number {
   if (orgSectors.length === 0) return Math.round(COMPONENT_MAX * 0.5); // Unknown: partial
 
   const oppSectors = normaliseStringList(opportunity.sector_filters);
-  if (oppSectors.length === 0) return COMPONENT_MAX; // No filter: any sector
+  if (oppSectors.length === 0) return Math.round(UNKNOWN_SCORE); // Unknown: not a perfect match
 
   const overlap = orgSectors.filter((os) =>
     oppSectors.some((ops) => ops.includes(os) || os.includes(ops))
@@ -89,7 +90,7 @@ function scoreIncome(org: OrgProfile, opportunity: Opportunity): number {
   if (!orgBand) return Math.round(COMPONENT_MAX * 0.5);
 
   const allowed = normaliseStringList(opportunity.income_bands);
-  if (allowed.length === 0) return COMPONENT_MAX; // No restriction
+  if (allowed.length === 0) return Math.round(UNKNOWN_SCORE); // Unknown: not a perfect match
 
   const match = allowed.some(
     (a) => a === orgBand || orgBand.includes(a) || a.includes(orgBand)
@@ -100,7 +101,7 @@ function scoreIncome(org: OrgProfile, opportunity: Opportunity): number {
 /** Deadline: is the deadline more than 3 weeks away (or open)? */
 function scoreDeadline(opportunity: Opportunity): number {
   const d = opportunity.deadline;
-  if (!d || !d.trim()) return COMPONENT_MAX; // Open deadline
+  if (!d || !d.trim()) return Math.round(UNKNOWN_SCORE); // Open: unknown feasibility
 
   const deadlineDate = new Date(d.trim());
   if (Number.isNaN(deadlineDate.getTime())) return COMPONENT_MAX;
@@ -173,8 +174,17 @@ function buildMatchReasons(
   return reasons;
 }
 
+/** True if opportunity has no eligibility filters (unknown match). */
+function hasNoEligibilityFilters(opportunity: Opportunity): boolean {
+  const loc = normaliseStringList(opportunity.location_filters);
+  const sec = normaliseStringList(opportunity.sector_filters);
+  const inc = normaliseStringList(opportunity.income_bands);
+  return loc.length === 0 && sec.length === 0 && inc.length === 0;
+}
+
 /**
  * Compute fit score (0–100) and breakdown. Pure function.
+ * When opportunity has no location/sector/income filters, cap at 50 (unknown, not perfect).
  */
 export function scoreFit(org: OrgProfile, opportunity: Opportunity): FitScore {
   const location_score = scoreLocation(org, opportunity);
@@ -182,19 +192,29 @@ export function scoreFit(org: OrgProfile, opportunity: Opportunity): FitScore {
   const income_score = scoreIncome(org, opportunity);
   const deadline_score = scoreDeadline(opportunity);
 
-  const fit_breakdown: FitBreakdown = {
+  let fit_breakdown: FitBreakdown = {
     location_score,
     sector_score,
     income_score,
     deadline_score,
   };
 
-  const fit_score = Math.min(
+  let fit_score = Math.min(
     100,
     Math.round(
       location_score + sector_score + income_score + deadline_score
     )
   );
+
+  if (hasNoEligibilityFilters(opportunity)) {
+    fit_score = 50;
+    fit_breakdown = {
+      location_score: Math.round(UNKNOWN_SCORE),
+      sector_score: Math.round(UNKNOWN_SCORE),
+      income_score: Math.round(UNKNOWN_SCORE),
+      deadline_score: Math.round(UNKNOWN_SCORE),
+    };
+  }
 
   const match_reasons = buildMatchReasons(org, opportunity, fit_breakdown);
 
