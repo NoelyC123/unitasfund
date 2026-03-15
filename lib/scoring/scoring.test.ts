@@ -50,8 +50,8 @@ describe("scoreFit", () => {
     // Income: £10k-£50k is in the list
     expect(result.fit_breakdown.income_score).toBe(25);
 
-    // Deadline: rolling = full marks
-    expect(result.fit_breakdown.deadline_score).toBe(25);
+    // Deadline: rolling = unknown score (12.5 rounded to 13)
+    expect(result.fit_breakdown.deadline_score).toBe(13);
 
     expect(result.match_reasons.length).toBeGreaterThan(0);
     expect(result.match_reasons.some((r) => r.toLowerCase().includes("region"))).toBe(true);
@@ -86,7 +86,7 @@ describe("scoreFit", () => {
     expect(result.fit_breakdown.income_score).toBe(0);
   });
 
-  it("handles empty or missing filters (treats as open)", () => {
+  it("handles empty or missing filters (base score 50, unknown)", () => {
     const openOpp: Opportunity = {
       title: "Open fund",
       amount_min: null,
@@ -97,10 +97,88 @@ describe("scoreFit", () => {
       income_bands: [],
     };
     const result = scoreFit(vcseCumbria, openOpp);
-    expect(result.fit_breakdown.location_score).toBe(25);
-    expect(result.fit_breakdown.sector_score).toBe(25);
-    expect(result.fit_breakdown.income_score).toBe(25);
-    expect(result.fit_breakdown.deadline_score).toBe(25);
+    expect(result.fit_breakdown.location_score).toBe(13);
+    expect(result.fit_breakdown.sector_score).toBe(13);
+    expect(result.fit_breakdown.income_score).toBe(13);
+    expect(result.fit_breakdown.deadline_score).toBe(13);
+    expect(result.fit_score).toBe(50);
+  });
+
+  it("applies 0.6 penalty for UKRI when org is vcse", () => {
+    const ukriOpp: Opportunity = {
+      ...awardsForAll,
+      source_id: "ukri",
+      title: "Innovation Grant",
+      location_filters: ["England"],
+      sector_filters: ["Community"],
+      income_bands: ["£10k-£50k"],
+    };
+    const result = scoreFit(vcseCumbria, ukriOpp);
+    const rawScore = 25 + 25 + 25 + 13;
+    expect(result.fit_score).toBe(Math.round(rawScore * 0.6));
+  });
+
+  it("applies 0.6 penalty for research-style title when org is vcse", () => {
+    const researchOpp: Opportunity = {
+      ...awardsForAll,
+      source_id: "nlcf",
+      title: "PhD Fellowship in Community Health",
+      location_filters: ["England"],
+      sector_filters: ["Community", "Health"],
+      income_bands: ["£10k-£50k"],
+    };
+    const result = scoreFit(vcseCumbria, researchOpp);
+    const rawScore = 25 + 25 + 25 + 13;
+    expect(result.fit_score).toBe(Math.round(rawScore * 0.6));
+  });
+
+  it("does not apply research penalty for SME or other org types", () => {
+    const smeOrg: OrgProfile = {
+      name: "Tech SME",
+      org_type: "sme",
+      location_region: "North West",
+      annual_income_band: "£50k-£100k",
+      sectors: ["Technology"],
+    };
+    const ukriOpp: Opportunity = {
+      ...awardsForAll,
+      source_id: "ukri",
+      title: "Research Grant",
+      location_filters: ["England", "North West"],
+      sector_filters: ["Technology"],
+      income_bands: ["£50k-£100k"],
+      deadline: "2030-12-31",
+    };
+    const result = scoreFit(smeOrg, ukriOpp);
+    expect(result.fit_score).toBe(100);
+  });
+
+  it("applies 1.2 regional bonus when location_filters include Cumbria (capped at 100)", () => {
+    const cumbriaOpp: Opportunity = {
+      ...awardsForAll,
+      location_filters: ["Cumbria", "North West"],
+      sector_filters: ["Community"],
+      income_bands: ["£10k-£50k"],
+    };
+    const result = scoreFit(vcseCumbria, cumbriaOpp);
+    expect(result.fit_score).toBe(100);
+  });
+
+  it("applies 1.2 regional bonus for Lancaster / North Lancashire", () => {
+    const lancasterOrg: OrgProfile = {
+      name: "Lancaster CVS",
+      org_type: "vcse",
+      location_region: "Lancaster",
+      annual_income_band: "£10k-£50k",
+      sectors: ["Community"],
+    };
+    const regionalOpp: Opportunity = {
+      ...awardsForAll,
+      location_filters: ["North Lancashire", "Lancaster"],
+      sector_filters: ["Community"],
+      income_bands: ["£10k-£50k"],
+    };
+    const result = scoreFit(lancasterOrg, regionalOpp);
     expect(result.fit_score).toBe(100);
   });
 });
@@ -144,9 +222,8 @@ describe("scoreOpportunity", () => {
   it("combines fit and EV and returns expected_value_net", () => {
     const result = scoreOpportunity(vcseCumbria, awardsForAll);
 
-    expect(result.fit.fit_score).toBe(100);
-    expect(result.ev.win_probability).toBe(1);
-    expect(result.ev.expected_value).toBe(5150); // 1 × 5150
+    expect(result.fit.fit_score).toBe(88); // 25+25+25+13, no penalty/bonus
+    expect(result.ev.win_probability).toBeCloseTo(0.88, 2);
     expect(result.expected_value_net).toBeCloseTo(
       result.ev.expected_value - result.ev.bid_cost_estimate,
       2

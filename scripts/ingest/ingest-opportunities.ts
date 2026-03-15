@@ -30,6 +30,44 @@ interface CsvRow {
   description: string;
 }
 
+/** Known navigation / admin terms to exclude from ingest (case-insensitive match). */
+const NAVIGATION_TERMS = new Set([
+  "england",
+  "scotland",
+  "wales",
+  "northern ireland",
+  "getting ready to apply",
+  "managing your funding",
+  "funding programmes",
+  "grants search",
+  "apply now",
+  "am i eligible",
+  "our funds",
+  "uk",
+  "home",
+  "funding",
+  "grants",
+  "search",
+  "contact",
+  "about",
+  "login",
+  "sign up",
+  "360giving",
+  "360 giving",
+]);
+
+const MIN_TITLE_LENGTH = 10;
+
+/**
+ * True if the title is navigation noise and should be excluded from ingest.
+ */
+function isNavigationNoise(title: string): boolean {
+  const t = (title ?? "").trim();
+  if (t.length < MIN_TITLE_LENGTH) return true;
+  const lower = t.toLowerCase();
+  return NAVIGATION_TERMS.has(lower);
+}
+
 function findLatestCsv(dir: string): string | null {
   try {
     const withStats = readdirSync(dir)
@@ -115,21 +153,30 @@ function csvRowToOpportunity(row: CsvRow) {
   };
 }
 
-function dbOrgToProfile(row: {
-  id: string;
-  name: string;
-  org_type: string;
-  location_region: string | null;
-  annual_income_band: string | null;
-  sectors: string[] | null;
-}): OrgProfile & { id: string } {
+/** Normalise DB org row to OrgProfile (handles JSONB sectors and missing fields). */
+function dbOrgToProfile(row: Record<string, unknown>): OrgProfile & { id: string } {
+  const id = String(row?.id ?? "");
+  const name = String(row?.name ?? "").trim() || "Unknown";
+  const org_type = (row?.org_type != null ? String(row.org_type) : "other") as OrgProfile["org_type"];
+  const location_region = row?.location_region != null && String(row.location_region).trim() !== ""
+    ? String(row.location_region).trim()
+    : null;
+  const annual_income_band = row?.annual_income_band != null && String(row.annual_income_band).trim() !== ""
+    ? String(row.annual_income_band).trim()
+    : null;
+  let sectors: string[] = [];
+  if (Array.isArray(row?.sectors)) {
+    sectors = (row.sectors as unknown[]).map((s) => String(s).trim()).filter(Boolean);
+  } else if (row?.sectors && typeof row.sectors === "object" && !Array.isArray(row.sectors)) {
+    sectors = Object.values(row.sectors).map((s) => String(s).trim()).filter(Boolean);
+  }
   return {
-    id: row.id,
-    name: row.name,
-    org_type: row.org_type as OrgProfile["org_type"],
-    location_region: row.location_region ?? null,
-    annual_income_band: row.annual_income_band ?? null,
-    sectors: Array.isArray(row.sectors) ? row.sectors : [],
+    id,
+    name,
+    org_type,
+    location_region,
+    annual_income_band,
+    sectors,
   };
 }
 
@@ -143,6 +190,10 @@ function dbOpportunityToScoring(row: {
   location_filters: unknown;
   sector_filters: unknown;
   income_bands: unknown;
+  description?: string | null;
+  eligibility_summary?: string | null;
+  funder_name?: string | null;
+  source_id?: string | null;
 }) {
   return {
     id: row.id,
@@ -154,6 +205,10 @@ function dbOpportunityToScoring(row: {
     location_filters: row.location_filters ?? {},
     sector_filters: row.sector_filters ?? {},
     income_bands: row.income_bands ?? {},
+    description: row.description ?? null,
+    eligibility_summary: row.eligibility_summary ?? null,
+    funder_name: row.funder_name ?? null,
+    source_id: row.source_id ?? null,
   };
 }
 
@@ -167,7 +222,27 @@ async function main() {
 
   const csvText = readFileSync(csvPath, "utf-8");
   const rows = parse(csvText, { columns: true, skip_empty_lines: true, trim: true }) as CsvRow[];
-  const opportunities = rows.map(csvRowToOpportunity);
+  const filtered = rows.filter((row) => !isNavigationNoise(row.title ?? ""));
+  const skipped = rows.length - filtered.length;
+  if (skipped > 0) {
+    console.log("Filtered out", skipped, "navigation/noise titles.");
+  }
+  let opportunities = filtered.map(csvRowToOpportunity);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const beforePastDeadline = opportunities.length;
+  opportunities = opportunities.filter((o) => {
+    if (!o.deadline) return true;
+    const d = new Date(o.deadline);
+    if (Number.isNaN(d.getTime())) return true;
+    d.setHours(0, 0, 0, 0);
+    return d >= today;
+  });
+  const pastDeadlineCount = beforePastDeadline - opportunities.length;
+  if (pastDeadlineCount > 0) {
+    console.log("Excluded", pastDeadlineCount, "opportunities with deadline in the past.");
+  }
 
   const supabase = getSupabaseService();
 
@@ -186,6 +261,34 @@ async function main() {
   const ingestedCount = opportunities.length;
   console.log("Ingested", ingestedCount, "opportunities.");
 
+  const currentKeys = new Set<string>();
+  for (const o of opportunities) {
+    currentKeys.add(`${o.source_id}:${o.external_id}`);
+  }
+  const sourceIds = Array.from(new Set(opportunities.map((o) => o.source_id)));
+  if (sourceIds.length > 0) {
+    const { data: existing, error: fetchExistingError } = await supabase
+      .from("opportunities")
+      .select("id, source_id, external_id")
+      .in("source_id", sourceIds);
+    if (!fetchExistingError && existing?.length) {
+      const staleIds = existing
+        .filter((r) => !currentKeys.has(`${r.source_id}:${r.external_id}`))
+        .map((r) => r.id);
+      if (staleIds.length > 0) {
+        const { error: deactivateError } = await supabase
+          .from("opportunities")
+          .update({ is_active: false })
+          .in("id", staleIds);
+        if (deactivateError) {
+          console.warn("Could not soft-deactivate stale opportunities:", deactivateError.message);
+        } else {
+          console.log("Soft-deactivated", staleIds.length, "stale opportunities.");
+        }
+      }
+    }
+  }
+
   const { data: orgs, error: orgsError } = await supabase
     .from("organisations")
     .select("id, name, org_type, location_region, annual_income_band, sectors");
@@ -201,7 +304,7 @@ async function main() {
 
   const { data: allOpportunities, error: oppsError } = await supabase
     .from("opportunities")
-    .select("id, title, amount_min, amount_max, amount_text, deadline, location_filters, sector_filters, income_bands")
+    .select("id, title, amount_min, amount_max, amount_text, deadline, location_filters, sector_filters, income_bands, description, eligibility_summary, funder_name, source_id")
     .eq("is_active", true);
   if (oppsError) {
     console.error("Fetch opportunities error:", oppsError.message);
@@ -219,7 +322,11 @@ async function main() {
     bid_cost_estimate: number;
     computed_at: string;
   }[] = [];
-  const profiles = orgs.map(dbOrgToProfile);
+  const profiles = (orgs as Record<string, unknown>[]).map(dbOrgToProfile);
+
+  if (profiles.length > 0) {
+    console.log("First org profile (for scoring):", JSON.stringify(profiles[0], null, 2));
+  }
 
   for (const org of profiles) {
     for (const opp of opps) {

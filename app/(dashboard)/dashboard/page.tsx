@@ -112,7 +112,7 @@ export default async function DashboardPage() {
         <p className="text-sm" style={{ color: "#4a5568" }}>
           {totalMatched === 0
             ? "No grant opportunities matched yet."
-            : `${totalMatched} opportunity${totalMatched === 1 ? "" : "s"} matched. Top fit score: ${Math.round(topScore)}%.`}
+            : `${totalMatched} ${totalMatched === 1 ? "opportunity" : "opportunities"} matched. Top fit score: ${Math.round(topScore)}%.`}
         </p>
       </header>
 

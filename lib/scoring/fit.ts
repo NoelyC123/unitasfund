@@ -26,6 +26,85 @@ function normaliseRegion(s: string | null | undefined): string {
   return s.trim().toLowerCase();
 }
 
+/** Sector keywords (lowercase) → canonical sector name for matching. */
+const SECTOR_KEYWORDS: { pattern: RegExp; sector: string }[] = [
+  { pattern: /\bcommunity\b/i, sector: "community" },
+  { pattern: /\benvironment(al)?\b/i, sector: "environment" },
+  { pattern: /\bhealth\b/i, sector: "health" },
+  { pattern: /\barts?\b|\bculture\b|\bcultural\b/i, sector: "arts & culture" },
+  { pattern: /\beducation\b/i, sector: "education" },
+  { pattern: /\bhousing\b/i, sector: "housing" },
+  { pattern: /\bemployment\b|\bjobs?\b|\bwork(force)?\b/i, sector: "employment" },
+  { pattern: /\bsme\b|\bsmall business\b/i, sector: "sme" },
+  { pattern: /\bresearch\b/i, sector: "research" },
+  { pattern: /\bsport\b|\bphysical activity\b/i, sector: "sport" },
+  { pattern: /\bheritage\b/i, sector: "heritage" },
+  { pattern: /\byouth\b|\bchildren\b|\bfamil(y|ies)\b/i, sector: "youth" },
+];
+
+/** Location keywords (lowercase) → canonical region for matching. */
+const LOCATION_KEYWORDS: { pattern: RegExp; region: string }[] = [
+  { pattern: /\bcumbria\b/i, region: "cumbria" },
+  { pattern: /\b(uk|united kingdom)\b/i, region: "uk" },
+  { pattern: /\bengland\b/i, region: "england" },
+  { pattern: /\bscotland\b/i, region: "scotland" },
+  { pattern: /\bwales\b/i, region: "wales" },
+  { pattern: /\bnorthern ireland\b/i, region: "northern ireland" },
+  { pattern: /\bnational\b|\buk-wide\b|\buk wide\b/i, region: "uk-wide" },
+  { pattern: /\bnorth west\b|\bnorthwest\b/i, region: "north west" },
+  { pattern: /\blancaster\b|\blancashire\b|\bnorth lancashire\b/i, region: "north lancashire" },
+];
+
+/** Org type keywords (for reference; we don't override income). */
+const ORG_TYPE_KEYWORDS: { pattern: RegExp; type: string }[] = [
+  { pattern: /\bcharity\b|\bcharities\b/i, type: "vcse" },
+  { pattern: /\bvcse\b|\bvoluntary\b|\bcommunity (org|group|sector)\b/i, type: "vcse" },
+  { pattern: /\bsmall business\b|\bsme\b|\benterprise\b/i, type: "sme" },
+  { pattern: /\bcic\b|\bcommunity interest\b/i, type: "cic" },
+];
+
+export interface InferredFilters {
+  inferredSectors: string[];
+  inferredRegions: string[];
+  inferredOrgTypes: string[];
+}
+
+/**
+ * Infer eligibility signals from opportunity title, description, and eligibility_summary.
+ * Used when explicit location_filters/sector_filters are empty to avoid flat 50% scores.
+ */
+export function inferFiltersFromText(opportunity: Opportunity): InferredFilters {
+  const text = [
+    opportunity.title ?? "",
+    opportunity.description ?? "",
+    opportunity.eligibility_summary ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const lower = text.toLowerCase();
+  const inferredSectors: string[] = [];
+  const inferredRegions: string[] = [];
+  const inferredOrgTypes: string[] = [];
+
+  for (const { pattern, sector } of SECTOR_KEYWORDS) {
+    if (pattern.test(text) && !inferredSectors.includes(sector)) {
+      inferredSectors.push(sector);
+    }
+  }
+  for (const { pattern, region } of LOCATION_KEYWORDS) {
+    if (pattern.test(text) && !inferredRegions.includes(region)) {
+      inferredRegions.push(region);
+    }
+  }
+  for (const { pattern, type } of ORG_TYPE_KEYWORDS) {
+    if (pattern.test(text) && !inferredOrgTypes.includes(type)) {
+      inferredOrgTypes.push(type);
+    }
+  }
+
+  return { inferredSectors, inferredRegions, inferredOrgTypes };
+}
+
 /** Location: does the opportunity’s geography allow the org’s region? */
 function scoreLocation(org: OrgProfile, opportunity: Opportunity): number {
   const orgRegion = normaliseRegion(org.location_region);
@@ -182,13 +261,74 @@ function hasNoEligibilityFilters(opportunity: Opportunity): boolean {
   return loc.length === 0 && sec.length === 0 && inc.length === 0;
 }
 
+/** Research/academic keywords: poor fit for VCSE/CIC. */
+const RESEARCH_TITLE_PATTERNS = [
+  "research",
+  "clinical",
+  "phd",
+  "fellowship",
+  "professorship",
+];
+
+function isResearchStyleTitle(title: string | null | undefined): boolean {
+  if (!title || !title.trim()) return false;
+  const lower = title.trim().toLowerCase();
+  return RESEARCH_TITLE_PATTERNS.some((p) => lower.includes(p));
+}
+
+/** True if VCSE/CIC should get research penalty (UKRI or research-style title). */
+function shouldApplyResearchPenalty(org: OrgProfile, opportunity: Opportunity): boolean {
+  const isVcseOrCic = org.org_type === "vcse" || org.org_type === "cic";
+  if (!isVcseOrCic) return false;
+  if (opportunity.source_id === "ukri") return true;
+  return isResearchStyleTitle(opportunity.title);
+}
+
+/** Regional priority: opportunity targets Cumbria / Lancaster / North West. */
+const REGIONAL_BONUS_KEYWORDS = [
+  "cumbria",
+  "lancaster",
+  "north lancashire",
+  "north west",
+];
+
+function hasRegionalBonus(opportunity: Opportunity): boolean {
+  const allowed = normaliseStringList(opportunity.location_filters);
+  return REGIONAL_BONUS_KEYWORDS.some((kw) =>
+    allowed.some((r) => r.includes(kw) || kw.includes(r))
+  );
+}
+
+const RESEARCH_PENALTY_MULTIPLIER = 0.6;
+const REGIONAL_BONUS_MULTIPLIER = 1.2;
+
 /**
  * Compute fit score (0–100) and breakdown. Pure function.
- * When opportunity has no location/sector/income filters, cap at 50 (unknown, not perfect).
+ * When explicit filters are empty, infers sectors/regions from title/description/eligibility_summary
+ * to produce a spread of scores; only caps at 50 when no signal can be inferred.
+ * Applies 0.6 penalty for UKRI or research-style titles for VCSE/CIC; 1.2 bonus for regional targets.
  */
 export function scoreFit(org: OrgProfile, opportunity: Opportunity): FitScore {
-  const location_score = scoreLocation(org, opportunity);
-  const sector_score = scoreSector(org, opportunity);
+  const inferred = inferFiltersFromText(opportunity);
+  const hasExplicitFilters = !hasNoEligibilityFilters(opportunity);
+
+  let effectiveOpportunity: Opportunity = opportunity;
+  if (!hasExplicitFilters && (inferred.inferredSectors.length > 0 || inferred.inferredRegions.length > 0)) {
+    effectiveOpportunity = {
+      ...opportunity,
+      location_filters:
+        normaliseStringList(opportunity.location_filters).length > 0
+          ? opportunity.location_filters
+          : inferred.inferredRegions,
+      sector_filters:
+        normaliseStringList(opportunity.sector_filters).length > 0
+          ? opportunity.sector_filters
+          : inferred.inferredSectors,
+    };
+  }
+
+  const location_score = scoreLocation(org, effectiveOpportunity);
+  const sector_score = scoreSector(org, effectiveOpportunity);
   const income_score = scoreIncome(org, opportunity);
   const deadline_score = scoreDeadline(opportunity);
 
@@ -206,7 +346,12 @@ export function scoreFit(org: OrgProfile, opportunity: Opportunity): FitScore {
     )
   );
 
-  if (hasNoEligibilityFilters(opportunity)) {
+  const noExplicitAndNoInferred =
+    !hasExplicitFilters &&
+    inferred.inferredSectors.length === 0 &&
+    inferred.inferredRegions.length === 0;
+
+  if (noExplicitAndNoInferred) {
     fit_score = 50;
     fit_breakdown = {
       location_score: Math.round(UNKNOWN_SCORE),
@@ -214,6 +359,13 @@ export function scoreFit(org: OrgProfile, opportunity: Opportunity): FitScore {
       income_score: Math.round(UNKNOWN_SCORE),
       deadline_score: Math.round(UNKNOWN_SCORE),
     };
+  }
+
+  if (shouldApplyResearchPenalty(org, opportunity)) {
+    fit_score = Math.round(fit_score * RESEARCH_PENALTY_MULTIPLIER);
+  }
+  if (hasRegionalBonus(effectiveOpportunity)) {
+    fit_score = Math.min(100, Math.round(fit_score * REGIONAL_BONUS_MULTIPLIER));
   }
 
   const match_reasons = buildMatchReasons(org, opportunity, fit_breakdown);
