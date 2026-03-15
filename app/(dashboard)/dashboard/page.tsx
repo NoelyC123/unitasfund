@@ -53,18 +53,20 @@ export default async function DashboardPage() {
       fit_score,
       fit_breakdown,
       ev,
-      opportunities (
+      opportunities!inner (
         id,
         source_id,
         title,
         funder_name,
         url,
         deadline,
-        amount_text
+        amount_text,
+        is_active
       )
     `
     )
     .eq("organisation_id", organisationId)
+    .eq("opportunities.is_active", true)
     .order("fit_score", { ascending: false })
     .limit(200);
 
@@ -92,16 +94,26 @@ export default async function DashboardPage() {
       ev: row.ev != null ? Number(row.ev) : null,
       deadline: (opp?.deadline ?? null) as string | null,
       amount_text: (opp?.amount_text ?? null) as string | null,
+      is_active: opp?.is_active !== false,
     };
   });
 
-  const grantsOnly = allMapped.filter((r) => r.source_id !== "fts");
+  const grantsOnly = allMapped.filter(
+    (r) =>
+      r.source_id !== "fts" &&
+      r.is_active &&
+      !(r.title ?? "").toLowerCase().includes("360giving")
+  );
   const totalMatched = grantsOnly.length;
   const topScore = grantsOnly[0]?.fit_score ?? 0;
   const opportunities = grantsOnly.slice(0, 20).map((r, i) => ({
     ...r,
     rank: i + 1,
   }));
+
+  console.log("[Dashboard] Scores fetched:", scoreRows?.length ?? 0);
+  console.log("[Dashboard] After filters (active, non-FTS, no 360Giving):", totalMatched);
+  console.log("[Dashboard] Top 5 titles:", opportunities.slice(0, 5).map((o) => o.title));
 
   return (
     <div className="pb-12">

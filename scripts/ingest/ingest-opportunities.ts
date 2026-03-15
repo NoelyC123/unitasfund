@@ -227,7 +227,15 @@ async function main() {
   if (skipped > 0) {
     console.log("Filtered out", skipped, "navigation/noise titles.");
   }
-  let opportunities = filtered.map(csvRowToOpportunity);
+  const sourceNameLower = (s: string | undefined) => (s ?? "").toLowerCase();
+  const exclude360 = filtered.filter(
+    (row) => !sourceNameLower(row.source_name).includes("360") && !sourceNameLower(row.source_name).includes("threesixtygiving")
+  );
+  const excluded360 = filtered.length - exclude360.length;
+  if (excluded360 > 0) {
+    console.log("Excluded", excluded360, "rows where source_name contains '360' or 'threesixtygiving'.");
+  }
+  let opportunities = exclude360.map(csvRowToOpportunity);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
