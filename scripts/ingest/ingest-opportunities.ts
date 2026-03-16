@@ -40,9 +40,37 @@ const NAVIGATION_TERMS = new Set([
   "managing your funding",
   "funding programmes",
   "grants search",
-  "apply now",
   "am i eligible",
+  "our fundholders",
+  "grant priorities",
+  "creating a fund",
+  "individual & families",
+  "businesses",
+  "grants committees",
+  "acorn funds",
+  "fundraising ideas",
   "our funds",
+  "apply now",
+  "search grants and funding",
+  "measuring impact",
+  "keeping warm",
+  "double your donation",
+  "winter warmth",
+  "cultural fund",
+  "apply for a grant",
+  "skip to main content",
+  "next set of pages",
+  "previous set of pages",
+  "sign in",
+  "register",
+  "cookie policy",
+  "privacy policy",
+  "terms and conditions",
+  "accessibility statement",
+  "back to top",
+  "help finder",
+  "data finder",
+  "bid writers",
   "uk",
   "home",
   "funding",
@@ -58,6 +86,44 @@ const NAVIGATION_TERMS = new Set([
 
 const MIN_TITLE_LENGTH = 10;
 
+const TENDER_KEYWORDS = [
+  "licence",
+  "tender",
+  "procurement",
+  "framework agreement",
+  "ferric sulphate",
+  "crimint",
+  "commissioning placement",
+  "supply and installation",
+  "vat advisory",
+] as const;
+
+function isTenderLikeTitle(title: string): boolean {
+  const lower = (title ?? "").toLowerCase();
+  return TENDER_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+/**
+ * Contract reference heuristic:
+ * exclude titles that contain a contract-like reference code (e.g. CM3072) and also
+ * contain 3+ capitalised words (typical of procurement/contract headings).
+ */
+function looksLikeContractReference(title: string): boolean {
+  const t = (title ?? "").trim();
+  if (!t) return false;
+
+  const hasCodeToken = /\b[A-Z]{2,}\d{2,}[A-Z0-9-]*\b/.test(t);
+  if (!hasCodeToken) return false;
+
+  const tokens = t
+    .replace(/[()\-–—_,.]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const capitalisedWords = tokens.filter((w) => /^[A-Z][a-z]{2,}$/.test(w)).length;
+  return capitalisedWords >= 3;
+}
+
 /**
  * True if the title is navigation noise and should be excluded from ingest.
  */
@@ -65,7 +131,14 @@ function isNavigationNoise(title: string): boolean {
   const t = (title ?? "").trim();
   if (t.length < MIN_TITLE_LENGTH) return true;
   const lower = t.toLowerCase();
-  return NAVIGATION_TERMS.has(lower);
+  if (NAVIGATION_TERMS.has(lower)) return true;
+  // Partial match: if any navigation term appears as a substring, treat as noise.
+  for (const term of NAVIGATION_TERMS) {
+    if (term && lower.includes(term)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function findLatestCsv(dir: string): string | null {
@@ -222,7 +295,25 @@ async function main() {
 
   const csvText = readFileSync(csvPath, "utf-8");
   const rows = parse(csvText, { columns: true, skip_empty_lines: true, trim: true }) as CsvRow[];
-  const filtered = rows.filter((row) => !isNavigationNoise(row.title ?? ""));
+  const withoutFts = rows.filter((row) => (row.source_id ?? "").toLowerCase() !== "fts");
+  const excludedFts = rows.length - withoutFts.length;
+  if (excludedFts > 0) {
+    console.log("Excluded", excludedFts, "rows where source_id is 'fts' (tenders).");
+  }
+
+  const filtered = withoutFts.filter((row) => {
+    const title = row.title ?? "";
+    const trimmed = title.trim();
+    const lower = trimmed.toLowerCase();
+    // Drop any scrape-error artefacts and any titles that look like bracketed UI/navigation labels.
+    if (lower.includes("[scrape error]")) return false;
+    if (trimmed.includes("[") && trimmed.includes("]")) return false;
+    // Drop tender/procurement items (even if mislabelled by source_id).
+    if (isTenderLikeTitle(trimmed)) return false;
+    // Drop contract-like reference codes (e.g. CM3072 ...) that look like procurement.
+    if (looksLikeContractReference(trimmed)) return false;
+    return !isNavigationNoise(title);
+  });
   const skipped = rows.length - filtered.length;
   if (skipped > 0) {
     console.log("Filtered out", skipped, "navigation/noise titles.");
@@ -297,6 +388,26 @@ async function main() {
     }
   }
 
+  // Deactivate tenders/procurement items that should never be in UnitasFund.
+  // We keep the rows for traceability but ensure they are not active.
+  const { error: deactivateFtsError } = await supabase
+    .from("opportunities")
+    .update({ is_active: false })
+    .eq("source_id", "fts");
+  if (deactivateFtsError) {
+    console.warn("Could not deactivate fts opportunities:", deactivateFtsError.message);
+  }
+
+  for (const kw of TENDER_KEYWORDS) {
+    const { error: deactivateKwError } = await supabase
+      .from("opportunities")
+      .update({ is_active: false })
+      .ilike("title", `%${kw}%`);
+    if (deactivateKwError) {
+      console.warn(`Could not deactivate tender keyword "${kw}":`, deactivateKwError.message);
+    }
+  }
+
   const { data: orgs, error: orgsError } = await supabase
     .from("organisations")
     .select("id, name, org_type, location_region, annual_income_band, sectors");
@@ -319,6 +430,18 @@ async function main() {
     process.exit(1);
   }
   const opps = allOpportunities ?? [];
+  // For scoring, drop navigation / helper pages that slipped through ingest or older runs.
+  const oppsForScoring = opps.filter((o) => {
+    const title = o.title ?? "";
+    const trimmed = title.trim();
+    const lower = trimmed.toLowerCase();
+    if (lower.includes("[scrape error]")) return false;
+    if (trimmed.includes("[") && trimmed.includes("]")) return false;
+    if (isNavigationNoise(title)) return false;
+    if (isTenderLikeTitle(trimmed)) return false;
+    if (looksLikeContractReference(trimmed)) return false;
+    return true;
+  });
 
   const scoreRows: {
     organisation_id: string;
@@ -337,7 +460,7 @@ async function main() {
   }
 
   for (const org of profiles) {
-    for (const opp of opps) {
+    for (const opp of oppsForScoring) {
       const opportunityForScoring = dbOpportunityToScoring(opp);
       const result = scoreOpportunity(org, opportunityForScoring);
       scoreRows.push({
@@ -365,6 +488,47 @@ async function main() {
   }
   const scoresCount = scoreRows.length;
   console.log("Computed", scoresCount, "scores.");
+
+  // Simple score distribution for diagnostics
+  const buckets: Record<string, number> = {
+    "0-19": 0,
+    "20-39": 0,
+    "40-59": 0,
+    "60-79": 0,
+    "80-100": 0,
+  };
+  for (const row of scoreRows) {
+    const s = row.fit_score;
+    if (s < 20) buckets["0-19"]++;
+    else if (s < 40) buckets["20-39"]++;
+    else if (s < 60) buckets["40-59"]++;
+    else if (s < 80) buckets["60-79"]++;
+    else buckets["80-100"]++;
+  }
+
+  console.log("Fit score distribution (all organisations x opportunities):");
+  console.log("  0–19  :", buckets["0-19"]);
+  console.log("  20–39 :", buckets["20-39"]);
+  console.log("  40–59 :", buckets["40-59"]);
+  console.log("  60–79 :", buckets["60-79"]);
+  console.log("  80–100:", buckets["80-100"]);
+
+  // Top 10 scores (by fit_score across all organisations/opportunities)
+  const idToTitle = new Map<string, string>();
+  for (const opp of oppsForScoring) {
+    idToTitle.set(opp.id, opp.title);
+  }
+  const top = [...scoreRows]
+    .sort((a, b) => b.fit_score - a.fit_score)
+    .slice(0, 10);
+  console.log("Top 10 scores:");
+  top.forEach((row, idx) => {
+    const title = idToTitle.get(row.opportunity_id) ?? "(unknown title)";
+    console.log(
+      `  ${idx + 1}. ${row.fit_score.toFixed(1)} – ${title} (org ${row.organisation_id})`
+    );
+  });
+
   console.log("Summary:", ingestedCount, "opportunities ingested,", scoresCount, "scores computed.");
 }
 

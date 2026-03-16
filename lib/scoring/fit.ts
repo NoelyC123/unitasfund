@@ -70,22 +70,28 @@ export interface InferredFilters {
 }
 
 /**
- * Infer eligibility signals from opportunity title, description, and eligibility_summary.
- * Used when explicit location_filters/sector_filters are empty to avoid flat 50% scores.
+ * Infer eligibility signals from opportunity title, description, eligibility_summary,
+ * funder_name and source_id.
+ *
+ * This is deliberately heuristic: the goal is to produce a meaningful spread of
+ * scores when explicit filters are missing, not perfect classification.
  */
 export function inferFiltersFromText(opportunity: Opportunity): InferredFilters {
-  const text = [
+  const textParts = [
     opportunity.title ?? "",
     opportunity.description ?? "",
     opportunity.eligibility_summary ?? "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+    opportunity.funder_name ?? "",
+    opportunity.source_id ?? "",
+  ];
+
+  const text = textParts.filter(Boolean).join(" ");
   const lower = text.toLowerCase();
   const inferredSectors: string[] = [];
   const inferredRegions: string[] = [];
   const inferredOrgTypes: string[] = [];
 
+  // Generic keyword-based sector and region inference
   for (const { pattern, sector } of SECTOR_KEYWORDS) {
     if (pattern.test(text) && !inferredSectors.includes(sector)) {
       inferredSectors.push(sector);
@@ -100,6 +106,52 @@ export function inferFiltersFromText(opportunity: Opportunity): InferredFilters 
     if (pattern.test(text) && !inferredOrgTypes.includes(type)) {
       inferredOrgTypes.push(type);
     }
+  }
+
+  // Heuristics based on known funders / sources from the UnitasConnect scraper
+  if (
+    lower.includes("national lottery community fund") ||
+    lower.includes("tnl community fund") ||
+    lower.includes("awards for all")
+  ) {
+    if (!inferredSectors.includes("community")) inferredSectors.push("community");
+    if (!inferredSectors.includes("arts & culture")) inferredSectors.push("arts & culture");
+    if (!inferredRegions.includes("england")) inferredRegions.push("england");
+    if (!inferredRegions.includes("uk-wide")) inferredRegions.push("uk-wide");
+  }
+
+  if (lower.includes("cumbria community foundation")) {
+    if (!inferredSectors.includes("community")) inferredSectors.push("community");
+    if (!inferredRegions.includes("cumbria")) inferredRegions.push("cumbria");
+  }
+
+  if (lower.includes("community foundation for lancashire")) {
+    if (!inferredSectors.includes("community")) inferredSectors.push("community");
+    if (!inferredRegions.includes("north lancashire")) {
+      inferredRegions.push("north lancashire");
+    }
+  }
+
+  if (lower.includes("lancaster cvs") || lower.includes("lancaster district cvs")) {
+    if (!inferredSectors.includes("community")) inferredSectors.push("community");
+    if (!inferredRegions.includes("north lancashire")) {
+      inferredRegions.push("north lancashire");
+    }
+  }
+
+  if (lower.includes("growth hub") || lower.includes("cumbria growth hub")) {
+    if (!inferredSectors.includes("sme")) inferredSectors.push("sme");
+    if (!inferredRegions.includes("cumbria")) inferredRegions.push("cumbria");
+  }
+
+  if (lower.includes("ukri") || lower.includes("innovate uk")) {
+    if (!inferredSectors.includes("research")) inferredSectors.push("research");
+    if (!inferredOrgTypes.includes("sme")) inferredOrgTypes.push("sme");
+  }
+
+  if (lower.includes("sport england")) {
+    if (!inferredSectors.includes("sport")) inferredSectors.push("sport");
+    if (!inferredRegions.includes("england")) inferredRegions.push("england");
   }
 
   return { inferredSectors, inferredRegions, inferredOrgTypes };
@@ -169,7 +221,54 @@ function scoreIncome(org: OrgProfile, opportunity: Opportunity): number {
   if (!orgBand) return Math.round(COMPONENT_MAX * 0.5);
 
   const allowed = normaliseStringList(opportunity.income_bands);
-  if (allowed.length === 0) return Math.round(UNKNOWN_SCORE); // Unknown: not a perfect match
+  if (allowed.length === 0) {
+    // No explicit income bands: fall back to amount range as a proxy.
+    const amountRef =
+      opportunity.amount_min != null
+        ? Number(opportunity.amount_min)
+        : opportunity.amount_max != null
+        ? Number(opportunity.amount_max)
+        : null;
+
+    if (amountRef == null || Number.isNaN(amountRef)) {
+      return Math.round(UNKNOWN_SCORE);
+    }
+
+    // Map organisation band and amount into rough indices 0–4 and score based on distance.
+    const bandOrder = [
+      "under £10k",
+      "£10k-£50k",
+      "£50k-£100k",
+      "£100k-£500k",
+      "£500k+",
+    ];
+
+    const normalisedOrgBand = orgBand.toLowerCase();
+    const orgIndex =
+      bandOrder.findIndex((b) => normalisedOrgBand.includes(b.replace("£", "").toLowerCase())) ?? -1;
+
+    const amountIndex =
+      amountRef <= 10_000
+        ? 0
+        : amountRef <= 50_000
+        ? 1
+        : amountRef <= 100_000
+        ? 2
+        : amountRef <= 500_000
+        ? 3
+        : 4;
+
+    if (orgIndex === -1) {
+      // Unknown org band string: treat as mid confidence when we have an amount.
+      return Math.round(COMPONENT_MAX * 0.6);
+    }
+
+    const diff = Math.abs(orgIndex - amountIndex);
+    if (diff === 0) return COMPONENT_MAX;
+    if (diff === 1) return Math.round(COMPONENT_MAX * 0.7);
+    if (diff === 2) return Math.round(COMPONENT_MAX * 0.4);
+    return Math.round(COMPONENT_MAX * 0.2);
+  }
 
   const match = allowed.some(
     (a) => a === orgBand || orgBand.includes(a) || a.includes(orgBand)
