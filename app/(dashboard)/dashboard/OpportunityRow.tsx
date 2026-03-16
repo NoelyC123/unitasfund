@@ -5,6 +5,7 @@ import { useState } from "react";
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
 const CREAM = "#f7f4ef";
+const COMPONENT_MAX = 25;
 
 type FitBreakdown = {
   location_score?: number;
@@ -24,6 +25,7 @@ type ScoredOpportunity = {
   ev: number | null;
   deadline: string | null;
   amount_text: string | null;
+  match_reasons?: string[];
 };
 
 function formatDeadline(d: string | null): string {
@@ -42,12 +44,28 @@ function fitColour(score: number): string {
   return "#ef4444";
 }
 
+/** Bar colour for a single component (0–25). */
+function componentBarColour(score: number): string {
+  if (score >= 20) return "#22c55e";
+  if (score >= 10) return "#f59e0b";
+  return "#ef4444";
+}
+
 function formatEv(ev: number | null): string {
   if (ev == null || Number.isNaN(ev)) return "—";
   const n = Math.round(ev);
   if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`;
   return `£${n.toLocaleString("en-GB")}`;
 }
+
+/** HIGH 75%+, MEDIUM 50–74%, LOW &lt;50% */
+function fitPriorityLabel(score: number): { label: string; bg: string; text: string } {
+  if (score >= 75) return { label: "HIGH", bg: "#dcfce7", text: "#166534" };
+  if (score >= 50) return { label: "MEDIUM", bg: "#fef3c7", text: "#92400e" };
+  return { label: "LOW", bg: "#fee2e2", text: "#991b1b" };
+}
+
+const COMPONENT_LABELS = ["Location", "Sector", "Income", "Deadline"] as const;
 
 export default function OpportunityRow({
   row,
@@ -59,11 +77,15 @@ export default function OpportunityRow({
   const [added, setAdded] = useState(false);
 
   const breakdown = row.fit_breakdown ?? {};
-  const loc = breakdown.location_score ?? 0;
-  const sec = breakdown.sector_score ?? 0;
-  const inc = breakdown.income_score ?? 0;
-  const dead = breakdown.deadline_score ?? 0;
-  const maxComponent = 25;
+  const scores = [
+    breakdown.location_score ?? 0,
+    breakdown.sector_score ?? 0,
+    breakdown.income_score ?? 0,
+    breakdown.deadline_score ?? 0,
+  ];
+  const reasons = row.match_reasons ?? [];
+
+  const priority = fitPriorityLabel(row.fit_score);
 
   async function addToPipeline() {
     setAdding(true);
@@ -127,9 +149,17 @@ export default function OpportunityRow({
                 }}
               />
             </div>
-            <span className="text-xs font-semibold tabular-nums" style={{ color: NAVY }}>
-              {Math.round(row.fit_score)}% fit
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold tabular-nums" style={{ color: NAVY }}>
+                {Math.round(row.fit_score)}% fit
+              </span>
+              <span
+                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: priority.bg, color: priority.text }}
+              >
+                {priority.label}
+              </span>
+            </div>
           </div>
           <span className="w-28 text-right" style={{ color: NAVY, fontSize: "0.9rem" }}>
             <span style={{ color: "#6b7280" }}>Est. value: </span>
@@ -171,33 +201,38 @@ export default function OpportunityRow({
       </div>
       {expanded && (
         <div
-          className="px-5 py-4 border-t grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm"
+          className="px-5 py-4 border-t space-y-4 text-sm"
           style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5" }}
         >
-          <div>
-            <span style={{ color: "#6b7280" }}>Location </span>
-            <span style={{ color: NAVY, fontWeight: 600 }}>
-              {loc}/{maxComponent}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: "#6b7280" }}>Sector </span>
-            <span style={{ color: NAVY, fontWeight: 600 }}>
-              {sec}/{maxComponent}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: "#6b7280" }}>Income </span>
-            <span style={{ color: NAVY, fontWeight: 600 }}>
-              {inc}/{maxComponent}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: "#6b7280" }}>Deadline </span>
-            <span style={{ color: NAVY, fontWeight: 600 }}>
-              {dead}/{maxComponent}
-            </span>
-          </div>
+          {COMPONENT_LABELS.map((label, i) => {
+            const score = scores[i] ?? 0;
+            const reason = reasons[i] ?? "No detail available.";
+            const pct = Math.round((score / COMPONENT_MAX) * 100);
+            const barColor = componentBarColour(score);
+            return (
+              <div key={label} className="space-y-1">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span style={{ color: "#6b7280", fontWeight: 600 }}>{label}</span>
+                  <span className="tabular-nums" style={{ color: NAVY, fontWeight: 600 }}>
+                    {Math.round(score)}/{COMPONENT_MAX}
+                  </span>
+                </div>
+                <p style={{ color: NAVY, margin: 0 }}>{reason}</p>
+                <div
+                  className="h-2 rounded-full overflow-hidden max-w-xs"
+                  style={{ backgroundColor: "#e5e7eb" }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, pct)}%`,
+                      backgroundColor: barColor,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -294,7 +294,8 @@ function scoreDeadline(opportunity: Opportunity): number {
   return Math.round(COMPONENT_MAX * 0.25);
 }
 
-function buildMatchReasons(
+/** Exported for dashboard UI to show plain-English score explanations. */
+export function buildMatchReasons(
   org: OrgProfile,
   opportunity: Opportunity,
   breakdown: FitBreakdown

@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/db/server";
 import { redirect } from "next/navigation";
+import { buildMatchReasons } from "@/lib/scoring/fit";
+import type { OrgProfile, Opportunity } from "@/lib/scoring/types";
 import OpportunityRow from "./OpportunityRow";
 
 const NAVY = "#1a1f2e";
@@ -44,6 +46,27 @@ export default async function DashboardPage() {
     );
   }
 
+  const { data: orgRow } = await supabase
+    .from("organisations")
+    .select("id, name, org_type, location_region, annual_income_band, sectors")
+    .eq("id", organisationId)
+    .single();
+
+  const orgProfile: OrgProfile | null = orgRow
+    ? {
+        id: orgRow.id,
+        name: String(orgRow.name ?? ""),
+        org_type: (orgRow.org_type ?? "other") as OrgProfile["org_type"],
+        location_region: orgRow.location_region ?? null,
+        annual_income_band: orgRow.annual_income_band ?? null,
+        sectors: Array.isArray(orgRow.sectors)
+          ? (orgRow.sectors as string[]).map(String)
+          : typeof orgRow.sectors === "object" && orgRow.sectors
+          ? Object.values(orgRow.sectors).map(String)
+          : [],
+      }
+    : null;
+
   const { data: scoreRows, error } = await supabase
     .from("scores")
     .select(
@@ -61,6 +84,13 @@ export default async function DashboardPage() {
         url,
         deadline,
         amount_text,
+        amount_min,
+        amount_max,
+        location_filters,
+        sector_filters,
+        income_bands,
+        description,
+        eligibility_summary,
         is_active
       )
     `
@@ -81,8 +111,45 @@ export default async function DashboardPage() {
     );
   }
 
+  const breakdownFromRow = (b: unknown): { location_score?: number; sector_score?: number; income_score?: number; deadline_score?: number } => {
+    if (!b || typeof b !== "object") return {};
+    const o = b as Record<string, number>;
+    return {
+      location_score: o.location_score,
+      sector_score: o.sector_score,
+      income_score: o.income_score,
+      deadline_score: o.deadline_score,
+    };
+  };
+
   const allMapped = (scoreRows ?? []).map((row: Record<string, unknown>) => {
     const opp = row.opportunities as Record<string, unknown> | null;
+    const fit_breakdown = breakdownFromRow(row.fit_breakdown);
+    const opportunityForReasons: Opportunity = {
+      id: String(opp?.id ?? row.opportunity_id),
+      title: String(opp?.title ?? "Untitled"),
+      source_id: (opp?.source_id as string) ?? undefined,
+      funder_name: (opp?.funder_name as string) ?? null,
+      url: (opp?.url as string) ?? null,
+      deadline: (opp?.deadline as string) ?? null,
+      amount_text: (opp?.amount_text as string) ?? null,
+      amount_min: opp?.amount_min != null ? Number(opp.amount_min) : null,
+      amount_max: opp?.amount_max != null ? Number(opp.amount_max) : null,
+      location_filters: (opp?.location_filters as Record<string, unknown>) ?? {},
+      sector_filters: (opp?.sector_filters as Record<string, unknown>) ?? {},
+      income_bands: (opp?.income_bands as Record<string, unknown>) ?? {},
+      description: (opp?.description as string) ?? null,
+      eligibility_summary: (opp?.eligibility_summary as string) ?? null,
+    };
+    const match_reasons =
+      orgProfile &&
+      buildMatchReasons(orgProfile, opportunityForReasons, {
+        location_score: fit_breakdown.location_score ?? 0,
+        sector_score: fit_breakdown.sector_score ?? 0,
+        income_score: fit_breakdown.income_score ?? 0,
+        deadline_score: fit_breakdown.deadline_score ?? 0,
+      });
+
     return {
       id: (opp?.id ?? row.opportunity_id) as string,
       source_id: (opp?.source_id ?? null) as string | null,
@@ -95,6 +162,7 @@ export default async function DashboardPage() {
       deadline: (opp?.deadline ?? null) as string | null,
       amount_text: (opp?.amount_text ?? null) as string | null,
       is_active: opp?.is_active !== false,
+      match_reasons: match_reasons ?? [],
     };
   });
 
