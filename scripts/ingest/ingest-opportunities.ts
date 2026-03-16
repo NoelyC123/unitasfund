@@ -275,13 +275,14 @@ function dbOpportunityToScoring(row: {
     amount_max: row.amount_max != null ? Number(row.amount_max) : null,
     amount_text: row.amount_text ?? null,
     deadline: row.deadline ?? null,
-    location_filters: row.location_filters ?? {},
-    sector_filters: row.sector_filters ?? {},
-    income_bands: row.income_bands ?? {},
+    location_filters: (row.location_filters ?? {}) as Record<string, unknown>,
+    sector_filters: (row.sector_filters ?? {}) as Record<string, unknown>,
+    income_bands: (row.income_bands ?? {}) as Record<string, unknown>,
     description: row.description ?? null,
     eligibility_summary: row.eligibility_summary ?? null,
     funder_name: row.funder_name ?? null,
-    source_id: row.source_id ?? null,
+    // scoring types use undefined for optional fields (not null)
+    source_id: row.source_id ?? undefined,
   };
 }
 
