@@ -2,7 +2,7 @@ import { createClient } from "@/lib/db/server";
 import { redirect } from "next/navigation";
 import { buildMatchReasons } from "@/lib/scoring/fit";
 import type { OrgProfile, Opportunity } from "@/lib/scoring/types";
-import OpportunityRow from "./OpportunityRow";
+import DashboardClient from "./DashboardClient";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
@@ -172,61 +172,12 @@ export default async function DashboardPage() {
       r.is_active &&
       !(r.title ?? "").toLowerCase().includes("360giving")
   );
-  const totalMatched = grantsOnly.length;
-  const topScore = grantsOnly[0]?.fit_score ?? 0;
-  const opportunities = grantsOnly.slice(0, 20).map((r, i) => ({
-    ...r,
-    rank: i + 1,
-  }));
 
   console.log("[Dashboard] Scores fetched:", scoreRows?.length ?? 0);
-  console.log("[Dashboard] After filters (active, non-FTS, no 360Giving):", totalMatched);
-  console.log("[Dashboard] Top 5 titles:", opportunities.slice(0, 5).map((o) => o.title));
-
-  return (
-    <div className="pb-12">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold mb-1" style={{ color: NAVY }}>
-          {orgName}
-        </h1>
-        <p className="text-sm" style={{ color: "#4a5568" }}>
-          {totalMatched === 0
-            ? "No grant opportunities matched yet."
-            : `${totalMatched} ${totalMatched === 1 ? "opportunity" : "opportunities"} matched. Top fit score: ${Math.round(topScore)}%.`}
-        </p>
-      </header>
-
-      <div className="mb-6">
-        <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: GOLD }}>
-          Top matches
-        </p>
-        <h2 className="text-xl font-bold mb-1" style={{ color: NAVY }}>
-          Grants (excluding tenders)
-        </h2>
-        <p className="text-sm" style={{ color: "#4a5568" }}>
-          Ranked by fit score. Add to your pipeline to track applications.
-        </p>
-      </div>
-
-      {opportunities.length === 0 ? (
-        <div
-          className="rounded-xl p-8 text-center"
-          style={{ backgroundColor: "#fff", border: "1px solid #ece6dd" }}
-        >
-          <p className="mb-2" style={{ color: NAVY }}>
-            No scored opportunities yet.
-          </p>
-          <p className="text-sm" style={{ color: "#4a5568" }}>
-            Run the ingest script to load opportunities and compute scores.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {opportunities.map((row) => (
-            <OpportunityRow key={row.id} row={row} />
-          ))}
-        </div>
-      )}
-    </div>
+  console.log(
+    "[Dashboard] After filters (active, non-FTS, no 360Giving):",
+    grantsOnly.length
   );
+
+  return <DashboardClient orgName={orgName} rows={grantsOnly} />;
 }

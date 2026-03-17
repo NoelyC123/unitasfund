@@ -17,6 +17,7 @@ type FitBreakdown = {
 type ScoredOpportunity = {
   rank: number;
   id: string;
+  source_id?: string | null;
   title: string;
   funder_name: string | null;
   url: string | null;
@@ -121,9 +122,7 @@ export default function OpportunityRow({
         </span>
         <div className="min-w-0 flex-1 min-w-[200px]">
           <a
-            href={row.url ?? "#"}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`/opportunity/${row.id}`}
             className="font-medium hover:underline block truncate"
             style={{ color: NAVY }}
           >
