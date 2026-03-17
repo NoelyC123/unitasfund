@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/db/server";
 import { redirect } from "next/navigation";
+import StatsSection from "./StatsSection";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
@@ -134,6 +135,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <StatsSection />
 
       {/* Key features */}
       <section className="px-6 py-16" style={{ backgroundColor: "#faf8f5" }}>
