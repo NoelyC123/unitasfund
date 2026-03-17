@@ -13,6 +13,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             UnitasFund
           </Link>
           <div className="flex items-center gap-4">
+            <Link href="/pricing" className="text-sm hover:underline" style={{ color: CREAM }}>
+              Pricing
+            </Link>
             <Link href="/login" className="text-sm hover:underline" style={{ color: CREAM }}>
               Log in
             </Link>
@@ -35,6 +38,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             UnitasFund — Funding · Strategy · Growth
           </span>
           <div className="flex gap-6 flex-wrap">
+            <Link href="/pricing" className="text-sm hover:underline" style={{ color: "#9ca3af" }}>
+              Pricing
+            </Link>
             <Link href="/privacy" className="text-sm hover:underline" style={{ color: "#9ca3af" }}>
               Privacy Policy
             </Link>

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { buildMatchReasons } from "@/lib/scoring/fit";
 import type { OrgProfile, Opportunity } from "@/lib/scoring/types";
 import DashboardClient from "./DashboardClient";
+import { getSupabaseService } from "@/lib/db/client";
+import type { PlanId } from "@/lib/stripe/plans";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
@@ -49,6 +51,19 @@ export default async function DashboardPage() {
       </div>
     );
   }
+
+  const service = getSupabaseService();
+  const [{ data: subRow }, { count: pipelineCount }] = await Promise.all([
+    service
+      .from("subscriptions")
+      .select("plan, status, current_period_end")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    service
+      .from("pipeline")
+      .select("id", { count: "exact", head: true })
+      .eq("organisation_id", organisationId),
+  ]);
 
   const { data: orgRow } = await supabase
     .from("organisations")
@@ -196,6 +211,8 @@ export default async function DashboardPage() {
       orgName={orgName}
       rows={grantsOnly}
       profileIncomplete={profileIncomplete}
+      plan={((subRow as any)?.plan as PlanId) ?? "free"}
+      pipelineCount={pipelineCount ?? 0}
     />
   );
 }

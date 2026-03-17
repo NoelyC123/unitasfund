@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { PlanId } from "@/lib/stripe/plans";
+import { pipelineLimitReached } from "@/lib/stripe/gate";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
@@ -104,8 +106,12 @@ const COMPONENT_LABELS = ["Location", "Sector", "Income", "Deadline"] as const;
 
 export default function OpportunityRow({
   row,
+  plan,
+  pipelineCount,
 }: {
   row: ScoredOpportunity;
+  plan: PlanId;
+  pipelineCount: number;
 }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -125,8 +131,16 @@ export default function OpportunityRow({
   const fitPill = fitBadge(row.fit_score);
   const deadlineUi = deadlineBadge(row.deadline);
   const lastChecked = lastCheckedLabel(row.last_checked_at);
+  const isFree = plan === "free";
+  const pipelineLocked = useMemo(() => {
+    if (!isFree) return false;
+    return pipelineLimitReached({ plan, pipelineCount });
+  }, [isFree, plan, pipelineCount]);
+  const reasonsLocked = isFree;
+  const evLocked = isFree;
 
   async function addToPipeline() {
+    if (pipelineLocked) return;
     setAdding(true);
     try {
       const res = await fetch("/api/pipeline", {
@@ -194,7 +208,7 @@ export default function OpportunityRow({
             {deadlineUi.label}
           </span>
           <span className="text-xs font-semibold tabular-nums" style={{ color: GOLD }}>
-            {formatEv(row.ev)}
+            {evLocked ? `${formatEv(row.ev)} — Upgrade` : formatEv(row.ev)}
           </span>
           <button
             type="button"
@@ -215,7 +229,7 @@ export default function OpportunityRow({
           <button
             type="button"
             onClick={addToPipeline}
-            disabled={adding || added}
+            disabled={adding || added || pipelineLocked}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-60 border"
             style={{
               backgroundColor: "#ffffff",
@@ -224,7 +238,7 @@ export default function OpportunityRow({
             }}
             onClickCapture={(e) => e.stopPropagation()}
           >
-            {added ? "In pipeline" : adding ? "Adding…" : "Add to pipeline"}
+            {added ? "In pipeline" : pipelineLocked ? "Upgrade to add more" : adding ? "Adding…" : "Add to pipeline"}
           </button>
         </div>
       </div>
@@ -249,7 +263,9 @@ export default function OpportunityRow({
                   </span>
                 </div>
                 <p className="text-sm" style={{ color: BODY, margin: 0 }}>
-                  {reason}
+                  <span style={{ filter: reasonsLocked ? "blur(4px)" : "none", display: "inline-block" }}>
+                    {reason}
+                  </span>
                 </p>
                 <div
                   className="h-2 rounded-full overflow-hidden max-w-xs"
@@ -266,6 +282,22 @@ export default function OpportunityRow({
               </div>
             );
           })}
+          {reasonsLocked && (
+            <div
+              className="rounded-xl border p-4 flex items-center justify-between gap-3 flex-wrap"
+              style={{ borderColor: BORDER, backgroundColor: CREAM }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div>
+                <p className="text-sm font-semibold" style={{ color: NAVY }}>
+                  Upgrade to unlock full match reasons and EV detail.
+                </p>
+              </div>
+              <a href="/pricing" className="text-sm font-semibold hover:underline" style={{ color: GOLD }}>
+                View plans →
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>

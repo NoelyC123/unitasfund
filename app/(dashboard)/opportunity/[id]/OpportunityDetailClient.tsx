@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { PlanId } from "@/lib/stripe/plans";
+import { pipelineLimitReached } from "@/lib/stripe/gate";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
@@ -124,6 +126,8 @@ function roundToNearest5(n: number): number {
 export default function OpportunityDetailClient(props: {
   organisationId: string;
   opportunityId: string;
+  plan: PlanId;
+  pipelineCount: number;
   title: string;
   funder_name: string | null;
   url: string | null;
@@ -200,8 +204,16 @@ export default function OpportunityDetailClient(props: {
   const statusChip = statusUi(currentStatus);
 
   const notesDirty = useMemo(() => (pipeline?.notes ?? "") !== notes, [pipeline?.notes, notes]);
+  const isFree = props.plan === "free";
+  const reasonsLocked = isFree;
+  const evLocked = isFree;
+  const pipelineLocked = useMemo(() => {
+    if (!isFree) return false;
+    return pipelineLimitReached({ plan: props.plan, pipelineCount: props.pipelineCount });
+  }, [isFree, props.plan, props.pipelineCount]);
 
   async function addToPipeline() {
+    if (pipelineLocked) return;
     setAdding(true);
     try {
       const res = await fetch("/api/pipeline", {
@@ -449,14 +461,31 @@ export default function OpportunityDetailClient(props: {
                 <p className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: GOLD }}>
                   Why we matched you
                 </p>
-                <ul className="text-sm space-y-2" style={{ color: BODY }}>
-                  {props.match_reasons.map((r, idx) => (
-                    <li key={idx} className="flex gap-2">
-                      <span style={{ color: GOLD }}>•</span>
-                      <span>{r}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="relative">
+                  <ul className="text-sm space-y-2" style={{ color: BODY, filter: reasonsLocked ? "blur(4px)" : "none" }}>
+                    {props.match_reasons.map((r, idx) => (
+                      <li key={idx} className="flex gap-2">
+                        <span style={{ color: GOLD }}>•</span>
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {reasonsLocked && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div
+                        className="rounded-xl border px-4 py-3 text-center max-w-md"
+                        style={{ backgroundColor: CREAM, borderColor: BORDER }}
+                      >
+                        <p className="text-sm font-semibold" style={{ color: NAVY }}>
+                          Upgrade to unlock full match reasons and EV detail.
+                        </p>
+                        <a href="/pricing" className="text-sm font-semibold hover:underline" style={{ color: GOLD }}>
+                          View plans →
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -508,14 +537,14 @@ export default function OpportunityDetailClient(props: {
                   Estimated net EV
                 </p>
                 <p className="text-2xl font-bold tabular-nums" style={{ color: GOLD }}>
-                  {formatMoneyGBP(props.ev)}
+                  {evLocked ? `${formatMoneyGBP(props.ev)} — Upgrade to see full details` : formatMoneyGBP(props.ev)}
                 </p>
                 <p className="text-xs mt-2" style={{ color: MUTED }}>
                   win probability × award value − bid cost
                   {bidHours != null ? ` (assumes approx. ${bidHours} hrs to bid @ £45/hr)` : ""} — see funder site for full criteria
                 </p>
 
-                <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: NAVY }}>
+                <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: NAVY, filter: evLocked ? "blur(3px)" : "none" }}>
                   {(() => {
                     const ui = confidenceUi(confidence);
                     return (
@@ -539,11 +568,11 @@ export default function OpportunityDetailClient(props: {
                 <button
                   type="button"
                   onClick={addToPipeline}
-                  disabled={adding}
+                  disabled={adding || pipelineLocked}
                   className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60"
                   style={{ backgroundColor: GOLD, color: NAVY }}
                 >
-                  {adding ? "Adding…" : "Add to pipeline"}
+                  {pipelineLocked ? "Upgrade to add more" : adding ? "Adding…" : "Add to pipeline"}
                 </button>
               ) : (
                 <div className="flex items-center justify-between gap-3 flex-wrap">

@@ -3,6 +3,7 @@ import { getSupabaseService } from "@/lib/db/client";
 import { redirect } from "next/navigation";
 import { buildMatchReasons } from "@/lib/scoring/fit";
 import type { OrgProfile, Opportunity } from "@/lib/scoring/types";
+import type { PlanId } from "@/lib/stripe/plans";
 import OpportunityDetailClient from "./OpportunityDetailClient";
 
 const NAVY = "#1a1f2e";
@@ -163,6 +164,19 @@ export default async function OpportunityDetailPage({
   const organisationId = link?.organisation_id ?? null;
   if (!organisationId) redirect("/onboarding");
 
+  const service = getSupabaseService();
+  const [{ data: subRow }, { count: pipelineCount }] = await Promise.all([
+    service
+      .from("subscriptions")
+      .select("plan, status, current_period_end")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    service
+      .from("pipeline")
+      .select("id", { count: "exact", head: true })
+      .eq("organisation_id", organisationId),
+  ]);
+
   const { data: orgRow } = await supabase
     .from("organisations")
     .select("id, name, org_type, location_region, annual_income_band, sectors")
@@ -292,6 +306,8 @@ export default async function OpportunityDetailPage({
     <OpportunityDetailClient
       organisationId={organisationId}
       opportunityId={id}
+      plan={((subRow as any)?.plan as PlanId) ?? "free"}
+      pipelineCount={pipelineCount ?? 0}
       title={String(opp?.title ?? "Untitled")}
       funder_name={(opp?.funder_name as string | null) ?? null}
       url={(opp?.url as string | null) ?? null}

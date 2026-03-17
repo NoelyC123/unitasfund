@@ -30,6 +30,13 @@ export default async function HomePage() {
           </span>
           <div className="flex items-center gap-4">
             <Link
+              href="/pricing"
+              className="text-sm hover:underline"
+              style={{ color: CREAM }}
+            >
+              Pricing
+            </Link>
+            <Link
               href="/login"
               className="text-sm hover:underline"
               style={{ color: CREAM }}
@@ -212,6 +219,36 @@ export default async function HomePage() {
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Pricing teaser */}
+      <section
+        className="px-6 py-16 border-t"
+        style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}
+      >
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div>
+            <p
+              className="text-xs font-semibold tracking-widest uppercase mb-2"
+              style={{ color: GOLD }}
+            >
+              Pricing
+            </p>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: NAVY }}>
+              From free to full-featured
+            </h2>
+            <p className="text-sm" style={{ color: "#4a5568" }}>
+              Start on Free, then upgrade when you want full match reasons, EV scores, alerts and exports.
+            </p>
+          </div>
+          <Link
+            href="/pricing"
+            className="inline-block px-6 py-3 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
+            style={{ backgroundColor: GOLD, color: NAVY }}
+          >
+            See pricing →
+          </Link>
         </div>
       </section>
 

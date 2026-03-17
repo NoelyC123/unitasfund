@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/db/browser";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import { PLANS } from "@/lib/stripe/plans";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
@@ -21,6 +23,7 @@ export default function SettingsClient(props: {
     alert_min_score: MinScore;
   };
 }) {
+  const sub = useSubscription();
   const [alertsEnabled, setAlertsEnabled] = useState<boolean>(props.initial.alerts_enabled);
   const [frequency, setFrequency] = useState<AlertFrequency>(props.initial.alert_frequency);
   const [minScore, setMinScore] = useState<MinScore>(props.initial.alert_min_score);
@@ -29,6 +32,7 @@ export default function SettingsClient(props: {
   const [saved, setSaved] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sendingReset, setSendingReset] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
 
   const dirty = useMemo(() => {
     return (
@@ -80,6 +84,33 @@ export default function SettingsClient(props: {
     }
   }
 
+  async function manageBilling() {
+    setBillingLoading(true);
+    setError(null);
+    setSaved(null);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error ?? "Failed to open billing portal.");
+      if (json?.url) window.location.href = String(json.url);
+      else throw new Error("Billing portal URL missing.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to open billing portal.");
+    } finally {
+      setBillingLoading(false);
+    }
+  }
+
+  const planName = PLANS[sub.plan]?.name ?? "Free";
+  const nextBilling =
+    sub.current_period_end && sub.plan !== "free"
+      ? new Date(sub.current_period_end).toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      : null;
+
   return (
     <div className="space-y-8 max-w-2xl">
       <header>
@@ -90,6 +121,50 @@ export default function SettingsClient(props: {
           Manage your email alerts and account settings.
         </p>
       </header>
+
+      <section className="rounded-xl border p-6" style={{ borderColor: BORDER, backgroundColor: "#fff" }}>
+        <h2 className="text-lg font-bold mb-4" style={{ color: NAVY }}>
+          Your plan
+        </h2>
+
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-sm font-semibold" style={{ color: NAVY }}>
+              {sub.loading ? "Loading…" : planName}
+            </p>
+            {nextBilling && (
+              <p className="text-sm" style={{ color: MUTED }}>
+                Next billing date: {nextBilling}
+              </p>
+            )}
+            {!sub.loading && sub.plan === "free" && (
+              <p className="text-sm" style={{ color: MUTED }}>
+                Upgrade to unlock full match reasons, EV detail and unlimited pipeline.
+              </p>
+            )}
+          </div>
+
+          {sub.plan === "free" ? (
+            <a
+              href="/pricing"
+              className="text-sm font-semibold px-4 py-2.5 rounded-lg hover:opacity-90"
+              style={{ backgroundColor: GOLD, color: NAVY }}
+            >
+              Upgrade →
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={manageBilling}
+              disabled={billingLoading}
+              className="text-sm font-semibold px-4 py-2.5 rounded-lg border hover:opacity-90 disabled:opacity-50"
+              style={{ borderColor: BORDER, backgroundColor: CREAM, color: NAVY }}
+            >
+              {billingLoading ? "Opening…" : "Manage billing →"}
+            </button>
+          )}
+        </div>
+      </section>
 
       <section className="rounded-xl border p-6" style={{ borderColor: BORDER, backgroundColor: "#fff" }}>
         <h2 className="text-lg font-bold mb-4" style={{ color: NAVY }}>
