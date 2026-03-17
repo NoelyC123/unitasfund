@@ -5,36 +5,12 @@ import { useRouter } from "next/navigation";
 import type { PlanId } from "@/lib/stripe/plans";
 import { pipelineLimitReached } from "@/lib/stripe/gate";
 
-const NAVY = "#1a1f2e";
-const GOLD = "#c9923a";
-const CREAM = "#f7f4ef";
-const BORDER = "#e8e3da";
-const BODY = "#374151";
-const MUTED = "#6b7280";
-const COMPONENT_MAX = 25;
-
-type FitBreakdown = {
-  location_score?: number;
-  sector_score?: number;
-  income_score?: number;
-  deadline_score?: number;
-};
-
-type ScoredOpportunity = {
-  rank: number;
-  id: string;
-  source_id?: string | null;
-  title: string;
-  funder_name: string | null;
-  url: string | null;
-  fit_score: number;
-  fit_breakdown: FitBreakdown | null;
-  ev: number | null;
-  deadline: string | null;
-  amount_text: string | null;
-  last_checked_at?: string | null;
-  match_reasons?: string[];
-};
+function formatEv(ev: number | null): string {
+  if (ev == null || Number.isNaN(ev)) return "—";
+  const n = Math.round(ev);
+  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`;
+  return `£${n.toLocaleString("en-GB")}`;
+}
 
 function formatDeadline(d: string | null): string {
   if (!d || !d.trim()) return "Rolling";
@@ -46,98 +22,62 @@ function formatDeadline(d: string | null): string {
   return `${day} ${month} ${year}`;
 }
 
-function deadlineBadge(deadline: string | null): { label: string; bg: string; text: string } {
-  if (!deadline || !deadline.trim()) {
-    return { label: "Rolling", bg: "#e0f2fe", text: "#075985" };
-  }
-  const d = new Date(deadline.trim());
-  const t = d.getTime();
-  if (Number.isNaN(t)) return { label: deadline, bg: "#e5e7eb", text: "#374151" };
-  const diffDays = (t - Date.now()) / (1000 * 60 * 60 * 24);
-  if (diffDays < 14) return { label: formatDeadline(deadline), bg: "#fee2e2", text: "#991b1b" };
-  if (diffDays < 28) return { label: formatDeadline(deadline), bg: "#fef3c7", text: "#92400e" };
-  return { label: formatDeadline(deadline), bg: "#dcfce7", text: "#166534" };
+function daysUntilDeadline(d: string | null): number | null {
+  if (!d || !d.trim()) return null;
+  const date = new Date(d.trim());
+  const t = date.getTime();
+  if (Number.isNaN(t)) return null;
+  return Math.floor((t - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-function fitBadge(score: number): { label: string; bg: string; text: string } {
-  if (score >= 75) return { label: "HIGH", bg: "#dcfce7", text: "#166534" };
-  if (score >= 50) return { label: "MEDIUM", bg: "#fef3c7", text: "#92400e" };
-  return { label: "LOW", bg: "#e5e7eb", text: "#374151" };
-}
-
-/** Bar colour for a single component (0–25). */
-function componentBarColour(score: number): string {
-  if (score >= 20) return "#22c55e";
-  if (score >= 10) return "#f59e0b";
-  return "#ef4444";
-}
-
-function formatEv(ev: number | null): string {
-  if (ev == null || Number.isNaN(ev)) return "—";
-  const n = Math.round(ev);
-  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`;
-  return `£${n.toLocaleString("en-GB")}`;
-}
-
-function lastCheckedLabel(lastCheckedAt?: string | null): { text: string; color: string } | null {
-  if (!lastCheckedAt || !lastCheckedAt.trim()) {
-    return { text: "Not yet verified", color: "#6b7280" };
-  }
+function lastCheckedText(lastCheckedAt?: string | null): string | null {
+  if (!lastCheckedAt || !lastCheckedAt.trim()) return "Not yet verified";
   const d = new Date(lastCheckedAt);
   const t = d.getTime();
-  if (Number.isNaN(t)) return { text: "Not yet verified", color: "#6b7280" };
+  if (Number.isNaN(t)) return "Not yet verified";
   const diffDays = Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24));
-  if (diffDays < 1) return null; // within 24h: show nothing
-  if (diffDays <= 7) return { text: `Checked ${diffDays} day${diffDays === 1 ? "" : "s"} ago`, color: "#6b7280" };
-  return {
-    text: `Last checked ${diffDays} day${diffDays === 1 ? "" : "s"} ago`,
-    color: "#92400e",
-  };
+  if (diffDays < 1) return null;
+  if (diffDays <= 7) return `Checked ${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  return `Last checked ${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
-/** HIGH 75%+, MEDIUM 50–74%, LOW &lt;50% */
-function fitPriorityLabel(score: number): { label: string; bg: string; text: string } {
-  if (score >= 75) return { label: "HIGH", bg: "#dcfce7", text: "#166534" };
-  if (score >= 50) return { label: "MEDIUM", bg: "#fef3c7", text: "#92400e" };
-  return { label: "LOW", bg: "#fee2e2", text: "#991b1b" };
+type ScoreBand = "HIGH" | "MEDIUM" | "LOW";
+function bandFor(score: number): ScoreBand {
+  if (score >= 75) return "HIGH";
+  if (score >= 50) return "MEDIUM";
+  return "LOW";
 }
 
-const COMPONENT_LABELS = ["Location", "Sector", "Income", "Deadline"] as const;
-
-export default function OpportunityRow({
-  row,
-  plan,
-  pipelineCount,
-}: {
-  row: ScoredOpportunity;
+export default function OpportunityRow(props: {
+  rank: number;
+  id: string;
+  title: string;
+  funder_name: string | null;
+  fit_score: number;
+  deadline: string | null;
+  ev: number | null;
+  last_checked_at?: string | null;
+  match_reasons?: string[];
   plan: PlanId;
   pipelineCount: number;
 }) {
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
+  const [showWhyScore, setShowWhyScore] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
 
-  const breakdown = row.fit_breakdown ?? {};
-  const scores = [
-    breakdown.location_score ?? 0,
-    breakdown.sector_score ?? 0,
-    breakdown.income_score ?? 0,
-    breakdown.deadline_score ?? 0,
-  ];
-  const reasons = row.match_reasons ?? [];
+  const band = bandFor(props.fit_score);
+  const funderInitial = (props.funder_name?.trim()?.[0] ?? "U").toUpperCase();
+  const daysUntil = daysUntilDeadline(props.deadline);
+  const deadlineText = formatDeadline(props.deadline);
+  const formattedEV = formatEv(props.ev);
+  const lcText = lastCheckedText(props.last_checked_at);
 
-  const priority = fitPriorityLabel(row.fit_score);
-  const fitPill = fitBadge(row.fit_score);
-  const deadlineUi = deadlineBadge(row.deadline);
-  const lastChecked = lastCheckedLabel(row.last_checked_at);
-  const isFree = plan === "free";
+  const isFree = props.plan === "free";
   const pipelineLocked = useMemo(() => {
     if (!isFree) return false;
-    return pipelineLimitReached({ plan, pipelineCount });
-  }, [isFree, plan, pipelineCount]);
-  const reasonsLocked = isFree;
-  const evLocked = isFree;
+    return pipelineLimitReached({ plan: props.plan, pipelineCount: props.pipelineCount });
+  }, [isFree, props.plan, props.pipelineCount]);
 
   async function addToPipeline() {
     if (pipelineLocked) return;
@@ -146,7 +86,7 @@ export default function OpportunityRow({
       const res = await fetch("/api/pipeline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ opportunity_id: row.id }),
+        body: JSON.stringify({ opportunity_id: props.id }),
       });
       if (res.ok) setAdded(true);
     } finally {
@@ -154,152 +94,125 @@ export default function OpportunityRow({
     }
   }
 
+  function handleCardClick() {
+    router.push(`/opportunity/${props.id}`);
+  }
+
+  function handleWhyScore(e: React.MouseEvent) {
+    e.stopPropagation();
+    setShowWhyScore((v) => !v);
+  }
+
+  async function handleAddToPipeline(e: React.MouseEvent) {
+    e.stopPropagation();
+    await addToPipeline();
+  }
+
+  const matchReasons = props.match_reasons ?? [];
+  const showReasons = showWhyScore && matchReasons.length > 0;
+
   return (
     <div
-      className="rounded-xl border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-      style={{ backgroundColor: "#ffffff", borderColor: BORDER }}
+      onClick={handleCardClick}
+      className="bg-white rounded-xl border border-[#e8e3da] shadow-sm hover:shadow-md transition-all duration-200 p-5 cursor-pointer group"
       role="link"
       tabIndex={0}
-      onClick={() => router.push(`/opportunity/${row.id}`)}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") router.push(`/opportunity/${row.id}`);
+        if (e.key === "Enter" || e.key === " ") handleCardClick();
       }}
     >
-      <div
-        className="flex flex-wrap items-center gap-4 p-5"
-        style={{ color: NAVY }}
-      >
-        <span className="text-xs font-semibold tabular-nums shrink-0" style={{ color: MUTED, width: "2.75rem" }}>
-          #{row.rank}
-        </span>
-        <div
-          className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold"
-          style={{ backgroundColor: GOLD, color: "#ffffff" }}
-          aria-hidden="true"
-        >
-          {(row.funder_name?.trim()?.[0] ?? "U").toUpperCase()}
-        </div>
-        <div className="min-w-0 flex-1 min-w-[200px]">
-          <div className="font-semibold block truncate text-base" style={{ color: NAVY }}>
-            {row.title}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <span className="text-xs text-[#9ca3af] w-5 pt-1 flex-shrink-0 font-mono">{props.rank}</span>
+
+          <div className="w-10 h-10 rounded-full bg-[#c9923a] flex items-center justify-center flex-shrink-0 shadow-sm">
+            <span className="text-white font-bold text-sm">{funderInitial}</span>
           </div>
-          {row.funder_name && (
-            <p className="text-sm truncate mt-0.5" style={{ color: MUTED }}>
-              {row.funder_name}
-            </p>
-          )}
-          {lastChecked && (
-            <p className="text-[11px] mt-1" style={{ color: lastChecked.color }}>
-              {lastChecked.text}
-            </p>
-          )}
+
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-[#1a1f2e] text-sm leading-snug group-hover:text-[#c9923a] transition-colors line-clamp-2">
+              {props.title}
+            </h3>
+            <p className="text-xs text-[#6b7280] mt-0.5">{props.funder_name ?? ""}</p>
+            {lcText && <p className="text-xs text-[#9ca3af] mt-0.5">{lcText}</p>}
+          </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
+
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
           <span
-            className="text-xs font-semibold px-3 py-1.5 rounded-full tabular-nums"
-            style={{ backgroundColor: fitPill.bg, color: fitPill.text }}
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              band === "HIGH"
+                ? "bg-green-100 text-green-800"
+                : band === "MEDIUM"
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-gray-100 text-gray-600"
+            }`}
           >
-            {Math.round(row.fit_score)}% {fitPill.label}
+            {Math.round(props.fit_score)}% {band}
           </span>
+
           <span
-            className="text-xs font-semibold px-3 py-1.5 rounded-full tabular-nums"
-            style={{ backgroundColor: deadlineUi.bg, color: deadlineUi.text }}
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+              daysUntil != null && daysUntil < 14
+                ? "bg-red-100 text-red-700"
+                : daysUntil != null && daysUntil < 30
+                  ? "bg-amber-100 text-amber-700"
+                  : props.deadline
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-500"
+            }`}
           >
-            {deadlineUi.label}
+            {deadlineText}
           </span>
-          <span className="text-xs font-semibold tabular-nums" style={{ color: GOLD }}>
-            {evLocked ? `${formatEv(row.ev)} — Upgrade` : formatEv(row.ev)}
-          </span>
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-xs font-semibold hover:underline"
-            style={{ color: GOLD }}
-            aria-expanded={expanded}
-            onClickCapture={(e) => e.stopPropagation()}
-          >
-            {expanded ? "Hide details" : "Why this score?"}
-            <span
-              className="inline-block transition-transform"
-              style={{ transform: expanded ? "rotate(180deg)" : "none" }}
-            >
-              ▼
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={addToPipeline}
-            disabled={adding || added || pipelineLocked}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-60 border"
-            style={{
-              backgroundColor: "#ffffff",
-              color: NAVY,
-              borderColor: NAVY,
-            }}
-            onClickCapture={(e) => e.stopPropagation()}
-          >
-            {added ? "In pipeline" : pipelineLocked ? "Upgrade to add more" : adding ? "Adding…" : "Add to pipeline"}
-          </button>
+
+          {props.ev != null && props.ev > 0 && (
+            <span className="text-xs font-semibold text-[#c9923a]">{isFree ? `${formattedEV} — Upgrade` : formattedEV}</span>
+          )}
         </div>
       </div>
-      {expanded && (
-        <div
-          className="px-5 pb-5 border-t space-y-4 text-sm"
-          style={{ borderColor: BORDER, backgroundColor: "#ffffff" }}
-        >
-          {COMPONENT_LABELS.map((label, i) => {
-            const score = scores[i] ?? 0;
-            const reason = reasons[i] ?? "No detail available.";
-            const pct = Math.round((score / COMPONENT_MAX) * 100);
-            const barColor = componentBarColour(score);
-            return (
-              <div key={label} className="space-y-1">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-xs font-semibold" style={{ color: MUTED }}>
-                    {label}
-                  </span>
-                  <span className="text-xs font-semibold tabular-nums" style={{ color: NAVY }}>
-                    {Math.round(score)}/{COMPONENT_MAX}
-                  </span>
-                </div>
-                <p className="text-sm" style={{ color: BODY, margin: 0 }}>
-                  <span style={{ filter: reasonsLocked ? "blur(4px)" : "none", display: "inline-block" }}>
-                    {reason}
-                  </span>
-                </p>
-                <div
-                  className="h-2 rounded-full overflow-hidden max-w-xs"
-                  style={{ backgroundColor: "#e5e7eb" }}
-                >
-                  <div
-                    className="h-full rounded-full transition-all duration-300"
-                    style={{
-                      width: `${Math.min(100, pct)}%`,
-                      backgroundColor: barColor,
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          {reasonsLocked && (
-            <div
-              className="rounded-xl border p-4 flex items-center justify-between gap-3 flex-wrap"
-              style={{ borderColor: BORDER, backgroundColor: CREAM }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div>
-                <p className="text-sm font-semibold" style={{ color: NAVY }}>
-                  Upgrade to unlock full match reasons and EV detail.
-                </p>
-              </div>
-              <a href="/pricing" className="text-sm font-semibold hover:underline" style={{ color: GOLD }}>
+
+      <div className="border-t border-[#f0ece4] mt-4 pt-3">
+        <div className="flex items-center justify-between">
+          <button onClick={handleWhyScore} className="text-xs text-[#c9923a] hover:underline font-medium">
+            Why this score? ▾
+          </button>
+          <button
+            onClick={handleAddToPipeline}
+            disabled={adding || added || pipelineLocked}
+            className="text-xs px-3 py-1.5 rounded-lg border border-[#1a1f2e] text-[#1a1f2e] font-medium hover:bg-[#1a1f2e] hover:text-white transition-colors duration-150 disabled:opacity-60"
+          >
+            {added ? "In pipeline" : pipelineLocked ? "Upgrade to add more" : adding ? "Adding…" : "+ Add to pipeline"}
+          </button>
+        </div>
+
+        {showWhyScore && isFree && matchReasons.length > 0 && (
+          <div className="mt-3 bg-[#f7f4ef] rounded-lg p-3">
+            <p className="text-xs text-[#6b7280]">
+              Upgrade to view full match reasons.
+              <a
+                href="/pricing"
+                onClick={(e) => e.stopPropagation()}
+                className="ml-2 text-[#c9923a] hover:underline font-medium"
+              >
                 View plans →
               </a>
-            </div>
-          )}
-        </div>
-      )}
+            </p>
+          </div>
+        )}
+
+        {showReasons && !isFree && (
+          <div className="mt-3 bg-[#f7f4ef] rounded-lg p-3">
+            <ul className="space-y-1.5">
+              {matchReasons.map((reason, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-[#374151]">
+                  <span className="text-[#c9923a] mt-0.5 flex-shrink-0">✓</span>
+                  {reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

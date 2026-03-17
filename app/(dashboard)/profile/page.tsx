@@ -2,9 +2,6 @@ import { createClient } from "@/lib/db/server";
 import { redirect } from "next/navigation";
 import ProfileForm from "./ProfileForm";
 
-const NAVY = "#1a1f2e";
-const GOLD = "#c9923a";
-
 export const metadata = {
   title: "Profile | UnitasFund",
 };
@@ -45,21 +42,11 @@ export default async function ProfilePage() {
   };
 
   return (
-    <div className="pb-12">
-      <header className="mb-8">
-        <p
-          className="text-xs font-semibold tracking-widest uppercase mb-1"
-          style={{ color: GOLD }}
-        >
-          Profile
-        </p>
-        <h1 className="text-2xl font-bold mb-1" style={{ color: NAVY }}>
-          Organisation profile
-        </h1>
-        <p className="text-sm" style={{ color: "#4a5568" }}>
-          Updating your profile will re-score all opportunities for your organisation.
-        </p>
-      </header>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-[#1a1f2e]">Organisation Profile</h1>
+        <p className="text-sm text-[#6b7280] mt-1">Updating your profile will re-score all opportunities.</p>
+      </div>
 
       <ProfileForm initial={initial} />
     </div>

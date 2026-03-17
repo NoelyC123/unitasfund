@@ -112,33 +112,112 @@ export default function SettingsClient(props: {
       : null;
 
   return (
-    <div className="space-y-8 max-w-2xl">
-      <header>
-        <h1 className="text-3xl font-bold mb-2" style={{ color: NAVY }}>
-          Settings
-        </h1>
-        <p className="text-sm" style={{ color: MUTED }}>
-          Manage your email alerts and account settings.
-        </p>
-      </header>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-[#1a1f2e]">Settings</h1>
+        <p className="text-sm text-[#6b7280] mt-1">Manage your alerts and account preferences.</p>
+      </div>
 
-      <section className="rounded-xl border p-6" style={{ borderColor: BORDER, backgroundColor: "#fff" }}>
-        <h2 className="text-lg font-bold mb-4" style={{ color: NAVY }}>
-          Your plan
-        </h2>
+      <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-6 mb-4">
+        <h2 className="text-base font-semibold text-[#1a1f2e] mb-4">Alert preferences</h2>
 
+        <div className="flex items-center justify-between py-3 border-b border-[#f0ece4]">
+          <div>
+            <p className="text-sm font-medium text-[#1a1f2e]">Email me when new matches are found</p>
+            <p className="text-xs text-[#6b7280] mt-0.5">
+              We'll email you when new opportunities meet your minimum score.
+            </p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={alertsEnabled}
+            onClick={() => setAlertsEnabled((v) => !v)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:ring-offset-2 ${
+              alertsEnabled ? "bg-[#c9923a]" : "bg-gray-200"
+            }`}
+            type="button"
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                alertsEnabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="py-3 border-b border-[#f0ece4]">
+          <label className="block text-xs font-medium text-[#6b7280] uppercase tracking-wider mb-2">Frequency</label>
+          <select
+            value={frequency}
+            onChange={(e) => setFrequency(e.target.value as AlertFrequency)}
+            className="w-full sm:w-48 py-2 px-3 text-sm rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] focus:outline-none focus:ring-2 focus:ring-[#c9923a]"
+          >
+            <option value="weekly">Weekly</option>
+            <option value="daily">Daily</option>
+          </select>
+        </div>
+
+        <div className="py-3">
+          <label className="block text-xs font-medium text-[#6b7280] uppercase tracking-wider mb-2">Minimum score</label>
+          <select
+            value={minScore}
+            onChange={(e) => setMinScore(Number(e.target.value) as MinScore)}
+            className="w-full sm:w-48 py-2 px-3 text-sm rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] focus:outline-none focus:ring-2 focus:ring-[#c9923a]"
+          >
+            <option value="40">40% and above</option>
+            <option value="60">60% and above</option>
+            <option value="70">70% and above</option>
+            <option value="80">80% and above</option>
+          </select>
+        </div>
+
+        {(saved || error) && (
+          <div className="mt-2">
+            {saved && <p className="text-sm text-green-600 font-medium">{saved}</p>}
+            {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+          </div>
+        )}
+
+        <div className="mt-4 pt-4 border-t border-[#f0ece4]">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving || !dirty}
+            className="px-6 py-2.5 bg-[#c9923a] text-white font-medium rounded-lg text-sm hover:opacity-90 transition-opacity shadow-sm disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save preferences"}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-6 mb-4">
+        <h2 className="text-base font-semibold text-[#1a1f2e] mb-4">Account</h2>
+        <div className="py-3 border-b border-[#f0ece4] flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-[#6b7280] uppercase tracking-wider mb-1">Email</p>
+            <p className="text-sm text-[#1a1f2e]">{props.email}</p>
+          </div>
+        </div>
+        <div className="pt-4">
+          <button
+            onClick={sendPasswordReset}
+            disabled={sendingReset}
+            className="text-sm text-[#c9923a] hover:underline font-medium disabled:opacity-60"
+            type="button"
+          >
+            {sendingReset ? "Sending…" : "Change password →"}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-6">
+        <h2 className="text-base font-semibold text-[#1a1f2e] mb-4">Plan</h2>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-sm font-semibold" style={{ color: NAVY }}>
-              {sub.loading ? "Loading…" : planName}
-            </p>
-            {nextBilling && (
-              <p className="text-sm" style={{ color: MUTED }}>
-                Next billing date: {nextBilling}
-              </p>
-            )}
+            <p className="text-sm font-medium text-[#1a1f2e]">{sub.loading ? "Loading…" : planName}</p>
+            {nextBilling && <p className="text-xs text-[#6b7280] mt-1">Next billing date: {nextBilling}</p>}
             {!sub.loading && sub.plan === "free" && (
-              <p className="text-sm" style={{ color: MUTED }}>
+              <p className="text-xs text-[#6b7280] mt-1">
                 Upgrade to unlock full match reasons, EV detail and unlimited pipeline.
               </p>
             )}
@@ -147,8 +226,7 @@ export default function SettingsClient(props: {
           {sub.plan === "free" ? (
             <a
               href="/pricing"
-              className="text-sm font-semibold px-4 py-2.5 rounded-lg hover:opacity-90"
-              style={{ backgroundColor: GOLD, color: NAVY }}
+              className="px-6 py-2.5 bg-[#c9923a] text-white font-medium rounded-lg text-sm hover:opacity-90 transition-opacity shadow-sm"
             >
               Upgrade →
             </a>
@@ -157,125 +235,13 @@ export default function SettingsClient(props: {
               type="button"
               onClick={manageBilling}
               disabled={billingLoading}
-              className="text-sm font-semibold px-4 py-2.5 rounded-lg border hover:opacity-90 disabled:opacity-50"
-              style={{ borderColor: BORDER, backgroundColor: CREAM, color: NAVY }}
+              className="px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm font-medium hover:bg-[#f7f4ef] disabled:opacity-60"
             >
               {billingLoading ? "Opening…" : "Manage billing →"}
             </button>
           )}
         </div>
-      </section>
-
-      <section className="rounded-xl border p-6" style={{ borderColor: BORDER, backgroundColor: "#fff" }}>
-        <h2 className="text-lg font-bold mb-4" style={{ color: NAVY }}>
-          Alert preferences
-        </h2>
-
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-sm font-semibold" style={{ color: NAVY }}>
-              Email me when new matches are found
-            </p>
-            <p className="text-sm" style={{ color: MUTED }}>
-              We'll email you when new opportunities meet your minimum score.
-            </p>
-          </div>
-          <button type="button" onClick={() => setAlertsEnabled((v) => !v)} className="shrink-0">
-            <span className="sr-only">Toggle alerts</span>
-            <span
-              className="relative inline-flex h-7 w-12 items-center rounded-full border transition-colors"
-              style={{
-                backgroundColor: alertsEnabled ? GOLD : "#e5e7eb",
-                borderColor: alertsEnabled ? GOLD : BORDER,
-              }}
-            >
-              <span
-                className="inline-block h-5 w-5 transform rounded-full transition-transform"
-                style={{
-                  backgroundColor: "#ffffff",
-                  transform: alertsEnabled ? "translateX(24px)" : "translateX(6px)",
-                }}
-              />
-            </span>
-          </button>
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="space-y-1">
-            <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
-              Frequency
-            </span>
-            <select
-              value={frequency}
-              onChange={(e) => setFrequency(e.target.value as AlertFrequency)}
-              className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
-              style={{ borderColor: BORDER, backgroundColor: "#fff", color: BODY }}
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-            </select>
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
-              Minimum score
-            </span>
-            <select
-              value={minScore}
-              onChange={(e) => setMinScore(Number(e.target.value) as MinScore)}
-              className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
-              style={{ borderColor: BORDER, backgroundColor: "#fff", color: BODY }}
-            >
-              <option value={40}>40%</option>
-              <option value={60}>60%</option>
-              <option value={70}>70%</option>
-              <option value={80}>80%</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-6 flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            disabled={!dirty || saving}
-            onClick={save}
-            className="text-sm font-semibold px-6 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: GOLD, color: NAVY }}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-
-          {saved && <span className="text-sm" style={{ color: "#16a34a" }}>{saved}</span>}
-          {error && <span className="text-sm" style={{ color: "#b91c1c" }}>{error}</span>}
-        </div>
-      </section>
-
-      <section className="rounded-xl border p-6" style={{ borderColor: BORDER, backgroundColor: "#fff" }}>
-        <h2 className="text-lg font-bold mb-4" style={{ color: NAVY }}>
-          Account
-        </h2>
-
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-sm font-semibold" style={{ color: NAVY }}>
-              Email
-            </p>
-            <p className="text-sm" style={{ color: MUTED }}>
-              {props.email}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={sendPasswordReset}
-            disabled={sendingReset}
-            className="text-sm font-semibold px-4 py-2.5 rounded-lg border hover:opacity-90 disabled:opacity-50"
-            style={{ borderColor: BORDER, backgroundColor: CREAM, color: NAVY }}
-          >
-            {sendingReset ? "Sending…" : "Change password"}
-          </button>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }

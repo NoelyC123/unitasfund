@@ -7,6 +7,10 @@ body {
   color: #374151;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 html {
   color-scheme: light;
 }

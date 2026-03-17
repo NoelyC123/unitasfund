@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 
-const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
 const BORDER = "#e8e3da";
-const BODY = "#374151";
-const MUTED = "#6b7280";
 
 const ORG_TYPES = [
   { value: "vcse", label: "VCSE / Charity" },
@@ -41,11 +38,13 @@ export default function ProfileForm({
   const [sectorsText, setSectorsText] = useState(initial.sectors.join(", "));
 
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function onSave() {
     setSaving(true);
-    setMessage(null);
+    setSavedMessage(null);
+    setErrorMessage(null);
     try {
       const sectors = sectorsText
         .split(",")
@@ -66,116 +65,92 @@ export default function ProfileForm({
 
       const json = (await res.json()) as { ok?: boolean; error?: string; rescored?: number };
       if (!res.ok) {
-        setMessage(json.error ?? "Failed to save.");
+        setErrorMessage(json.error ?? "Failed to save.");
         return;
       }
-      setMessage(`Saved. Re-scored ${json.rescored ?? 0} opportunities.`);
+      setSavedMessage("✓ Profile saved — re-scoring in progress");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="max-w-2xl">
-      <div className="rounded-xl border p-8" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
-        <div className="space-y-6">
-          <label className="space-y-2">
-            <span className="block text-sm font-medium" style={{ color: NAVY }}>
-              Organisation name
-            </span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border px-4 py-2.5 bg-white outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
-              style={{ borderColor: BORDER, color: NAVY }}
-            />
-          </label>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <label className="space-y-2">
-              <span className="block text-sm font-medium" style={{ color: NAVY }}>
-                Organisation type
-              </span>
-              <select
-                value={orgType}
-                onChange={(e) => setOrgType(e.target.value)}
-                className="w-full rounded-lg border px-4 py-2.5 bg-white outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
-                style={{ borderColor: BORDER, color: NAVY }}
-              >
-                {ORG_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="block text-sm font-medium" style={{ color: NAVY }}>
-                Location / region
-              </span>
-              <input
-                value={locationRegion}
-                onChange={(e) => setLocationRegion(e.target.value)}
-                placeholder="e.g. Cumbria, North West, UK-wide"
-                className="w-full rounded-lg border px-4 py-2.5 bg-white outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
-                style={{ borderColor: BORDER, color: NAVY }}
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="block text-sm font-medium" style={{ color: NAVY }}>
-                Annual income band
-              </span>
-              <select
-                value={incomeBand}
-                onChange={(e) => setIncomeBand(e.target.value)}
-                className="w-full rounded-lg border px-4 py-2.5 bg-white outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
-                style={{ borderColor: BORDER, color: NAVY }}
-              >
-                <option value="">Select…</option>
-                {INCOME_BANDS.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="space-y-2">
-            <span className="block text-sm font-medium" style={{ color: NAVY }}>
-              Sectors (comma-separated)
-            </span>
-            <input
-              value={sectorsText}
-              onChange={(e) => setSectorsText(e.target.value)}
-              placeholder="e.g. community, health, arts & culture"
-              className="w-full rounded-lg border px-4 py-2.5 bg-white outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
-              style={{ borderColor: BORDER, color: NAVY }}
-            />
-            <p className="text-xs" style={{ color: MUTED }}>
-              Tip: separate sectors with commas.
-            </p>
-          </label>
-
-          <div className="flex items-center gap-4 flex-wrap pt-2">
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={saving}
-              className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-opacity disabled:opacity-60 hover:opacity-90"
-              style={{ backgroundColor: GOLD, color: NAVY }}
-            >
-              {saving ? "Saving & re-scoring…" : "Save profile"}
-            </button>
-            {message && (
-              <p className="text-sm" style={{ color: message.startsWith("Saved") ? "#166534" : "#b91c1c" }}>
-                {message}
-              </p>
-            )}
-          </div>
+    <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-6 sm:p-8">
+      <div className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Organisation name</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent placeholder-[#9ca3af]"
+          />
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Organisation type</label>
+          <select
+            value={orgType}
+            onChange={(e) => setOrgType(e.target.value)}
+            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+          >
+            {ORG_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Location / region</label>
+          <input
+            value={locationRegion}
+            onChange={(e) => setLocationRegion(e.target.value)}
+            placeholder="e.g. Cumbria, North West, UK-wide"
+            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent placeholder-[#9ca3af]"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Annual income band</label>
+          <select
+            value={incomeBand}
+            onChange={(e) => setIncomeBand(e.target.value)}
+            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+          >
+            <option value="">Select…</option>
+            {INCOME_BANDS.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Sectors (comma-separated)</label>
+          <input
+            value={sectorsText}
+            onChange={(e) => setSectorsText(e.target.value)}
+            placeholder="e.g. community, health, arts & culture"
+            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent placeholder-[#9ca3af]"
+          />
+        </div>
+      </div>
+
+      <div className="mt-8 pt-6 border-t border-[#e8e3da] flex items-center justify-between">
+        <div>
+          {savedMessage && <p className="text-sm text-green-600 font-medium">{savedMessage}</p>}
+          {errorMessage && <p className="text-sm text-red-600 font-medium">{errorMessage}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="ml-auto px-6 py-2.5 bg-[#c9923a] text-white font-medium rounded-lg text-sm hover:opacity-90 transition-opacity shadow-sm disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save profile"}
+        </button>
       </div>
     </div>
   );

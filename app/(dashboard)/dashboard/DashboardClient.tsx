@@ -98,7 +98,7 @@ export default function DashboardClient({
       return b.fit_score - a.fit_score;
     });
 
-    return out.map((r, i) => ({ ...r, rank: i + 1 }));
+    return out;
   }, [rows, band, funder, sortKey, query]);
 
   const topScore = filteredSorted[0]?.fit_score ?? 0;
@@ -279,7 +279,7 @@ export default function DashboardClient({
       ) : (
         <div className="space-y-3">
           {filteredSorted.map((row, i) => (
-            <OpportunityRow key={row.id} rank={i + 1} plan={plan} pipelineCount={pipelineCount} {...row} />
+            <OpportunityRow key={row.id} {...row} rank={i + 1} plan={plan} pipelineCount={pipelineCount} />
           ))}
         </div>
       )}
