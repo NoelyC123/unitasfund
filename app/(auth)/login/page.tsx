@@ -84,6 +84,11 @@ export default function LoginPage() {
           {loading ? "Logging in…" : "Log in"}
         </button>
       </form>
+      <p className="mt-4 text-center text-sm" style={{ color: "#4a5568" }}>
+        <Link href="/forgot-password" className="font-medium" style={{ color: "#4a5568" }}>
+          Forgot your password?
+        </Link>
+      </p>
       <p className="mt-6 text-center text-sm" style={{ color: "#4a5568" }}>
         Don&apos;t have an account?{" "}
         <Link href="/signup" className="font-medium" style={{ color: "#c9923a" }}>
