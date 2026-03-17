@@ -9,6 +9,7 @@
     "lint": "eslint",
     "ingest": "npx tsx scripts/ingest/ingest-opportunities.ts",
     "enrich": "npx tsx scripts/ingest/enrich-opportunities.ts",
+    "alerts": "npx tsx scripts/alerts/send-alerts.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -48,6 +48,13 @@ export default async function DashboardLayout({
               >
                 Profile
               </a>
+              <a
+                href="/settings"
+                className="text-sm hover:underline"
+                style={{ color: "#f7f4ef" }}
+              >
+                Settings
+              </a>
             </nav>
           </div>
           <form action="/api/auth/signout" method="post">

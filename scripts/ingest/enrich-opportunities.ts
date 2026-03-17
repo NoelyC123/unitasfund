@@ -25,6 +25,13 @@ interface EnrichmentResult {
   income_bands: string[];
 }
 
+type Flags = {
+  limit: number;
+  force: boolean;
+  dryRun: boolean;
+  source: string | null;
+};
+
 function getLimitFromArgs(defaultLimit: number): number {
   const idx = process.argv.findIndex((a) => a === "--limit");
   if (idx === -1) return defaultLimit;
@@ -32,6 +39,26 @@ function getLimitFromArgs(defaultLimit: number): number {
   const n = raw ? Number(raw) : NaN;
   if (!Number.isFinite(n) || n <= 0) return defaultLimit;
   return Math.floor(n);
+}
+
+function getStringFlag(name: string): string | null {
+  const idx = process.argv.findIndex((a) => a === name);
+  if (idx === -1) return null;
+  const v = process.argv[idx + 1];
+  return v && !v.startsWith("--") ? v : null;
+}
+
+function hasFlag(name: string): boolean {
+  return process.argv.includes(name);
+}
+
+function getFlags(): Flags {
+  return {
+    limit: getLimitFromArgs(50),
+    force: hasFlag("--force"),
+    dryRun: hasFlag("--dry-run"),
+    source: getStringFlag("--source"),
+  };
 }
 
 function buildPrompt(args: {
@@ -46,7 +73,7 @@ CRITICAL DATA QUALITY RULES:
 - If a field cannot be extracted accurately from the page text, set it to null (or [] for arrays).
 - Do NOT paraphrase funder names, amounts, or deadlines. If unsure, leave null.
 - For "description": extract a short, plain-text description that appears on the page (prefer the first substantive paragraph or an on-page summary). Do not write your own summary.
-- For "eligibility_summary": extract only eligibility criteria text that appears on the page. Do not infer.
+- For "eligibility_summary": extract only eligibility criteria text that appears on the page. Prefer sections titled "Eligibility", "Who can apply", or "Criteria". Do not infer. Keep it under 500 characters.
 
 Return ONLY valid JSON with exactly these keys:
 {
@@ -94,6 +121,14 @@ function trimOrNull(s: unknown): string | null {
   if (typeof s !== "string") return null;
   const t = s.trim();
   return t.length ? t : null;
+}
+
+function clampText(s: string | null, max: number): string | null {
+  if (!s) return null;
+  const t = s.trim();
+  if (!t) return null;
+  if (t.length <= max) return t;
+  return t.slice(0, max).trim();
 }
 
 async function callClaude(prompt: string): Promise<string> {
@@ -164,6 +199,85 @@ async function fetchPageText(url: string): Promise<string | null> {
   }
 }
 
+function extractEligibilityFromPageText(pageText: string): string | null {
+  const lower = pageText.toLowerCase();
+  const headings = ["eligibility", "who can apply", "criteria"];
+
+  const positions = headings
+    .map((h) => ({ h, idx: lower.indexOf(h) }))
+    .filter((x) => x.idx >= 0)
+    .sort((a, b) => a.idx - b.idx);
+
+  if (positions.length === 0) return null;
+
+  const start = positions[0].idx;
+  // Grab a window after the heading, stop before the next major heading-ish break if we can.
+  const slice = pageText.slice(start, Math.min(pageText.length, start + 2500));
+  // Keep to readable lines; strip the heading word itself if present.
+  const cleaned = slice
+    .replace(/^\s*(eligibility|who can apply|criteria)\s*[:\-\n]*/i, "")
+    .trim();
+  return clampText(cleaned.replace(/\s+/g, " "), 500);
+}
+
+function parseAmountFromText(pageText: string): { min: number | null; max: number | null } {
+  const text = pageText.replace(/,/g, "");
+  // Range: £1000 - £5000
+  const range = text.match(/£\s*([\d]{1,9}(?:\.\d+)?)\s*[-–—]\s*£?\s*([\d]{1,9}(?:\.\d+)?)/i);
+  if (range) {
+    const a = Math.round(Number(range[1]));
+    const b = Math.round(Number(range[2]));
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      return { min: Math.min(a, b), max: Math.max(a, b) };
+    }
+  }
+  // Single: up to £5,000 / £5000
+  const upTo = text.match(/up to\s*£\s*([\d]{1,9}(?:\.\d+)?)/i);
+  if (upTo) {
+    const v = Math.round(Number(upTo[1]));
+    if (Number.isFinite(v)) return { min: v, max: v };
+  }
+  // Any single £number (take the first plausible)
+  const single = text.match(/£\s*([\d]{1,9}(?:\.\d+)?)/);
+  if (single) {
+    const v = Math.round(Number(single[1]));
+    if (Number.isFinite(v)) return { min: v, max: v };
+  }
+  return { min: null, max: null };
+}
+
+function parseDeadlineFromText(pageText: string): string | null {
+  // ISO
+  const iso = pageText.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  if (iso) return iso[0];
+
+  const months: Record<string, string> = {
+    jan: "01",
+    feb: "02",
+    mar: "03",
+    apr: "04",
+    may: "05",
+    jun: "06",
+    jul: "07",
+    aug: "08",
+    sep: "09",
+    sept: "09",
+    oct: "10",
+    nov: "11",
+    dec: "12",
+  };
+
+  const m = pageText.match(/\b(\d{1,2})\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(20\d{2})\b/i);
+  if (m) {
+    const day = m[1].padStart(2, "0");
+    const monKey = m[2].toLowerCase().slice(0, 3) as keyof typeof months;
+    const month = months[monKey];
+    const year = m[3];
+    if (month) return `${year}-${month}-${day}`;
+  }
+  return null;
+}
+
 function dbOrgToProfile(row: Record<string, unknown>): OrgProfile & { id: string } {
   const id = String(row?.id ?? "");
   const name = String(row?.name ?? "").trim() || "Unknown";
@@ -204,15 +318,24 @@ function dbOpportunityToScoring(row: Record<string, unknown>): Opportunity & { i
 
 async function main() {
   const supabase = getSupabaseService();
-  const limit = getLimitFromArgs(50);
+  const flags = getFlags();
+  const limit = flags.limit;
 
-  const { data: rows, error: fetchError } = await supabase
+  let query = supabase
     .from("opportunities")
     .select(
       "id, title, url, source_id, funder_name, deadline, amount_text, amount_min, amount_max, description, eligibility_summary, location_filters, sector_filters, income_bands"
     )
-    .is("description", null)
     .limit(limit);
+
+  if (!flags.force) {
+    query = query.is("description", null);
+  }
+  if (flags.source) {
+    query = query.eq("source_id", flags.source);
+  }
+
+  const { data: rows, error: fetchError } = await query;
 
   if (fetchError) {
     console.error("Failed to fetch opportunities:", fetchError.message);
@@ -221,20 +344,17 @@ async function main() {
 
   const list = rows ?? [];
   if (list.length === 0) {
-    console.log("No opportunities with NULL description found.");
+    console.log(flags.force ? "No opportunities found." : "No opportunities with NULL description found.");
     return;
   }
 
-  // Count "skipped" as opportunities not included because they already have description.
-  const { count: alreadyCount } = await supabase
-    .from("opportunities")
-    .select("id", { count: "exact", head: true })
-    .not("description", "is", null);
-
-  console.log(`Found ${list.length} opportunities to enrich.`);
+  console.log(
+    `Found ${list.length} opportunities to enrich${flags.source ? ` (source=${flags.source})` : ""}${flags.force ? " (force)" : ""}${flags.dryRun ? " (dry-run)" : ""}.`
+  );
 
   let enriched = 0;
-  let skipped = 0; // failed or cannot extract
+  let skipped = 0; // nothing to do / already has data (when not force)
+  let failed = 0;
   const enrichedIds: string[] = [];
 
   for (let i = 0; i < list.length; i++) {
@@ -246,7 +366,7 @@ async function main() {
       const pageText = (await fetchPageText(url)) ?? "";
       if (!pageText) {
         console.warn(`[${i + 1}/${list.length}] No page text fetched for: ${title}`);
-        skipped++;
+        failed++;
         await sleep(DELAY_MS);
         continue;
       }
@@ -257,13 +377,18 @@ async function main() {
 
       if (!parsed) {
         console.warn(`[${i + 1}/${list.length}] Invalid JSON for: ${title}`);
-        skipped++;
+        failed++;
         await sleep(DELAY_MS);
         continue;
       }
 
       const description = trimOrNull(parsed.description);
-      const eligibility_summary = trimOrNull(parsed.eligibility_summary);
+      // Prefer deterministic extraction from the page for eligibility; fall back to Claude field.
+      const eligibilityFromPage = extractEligibilityFromPageText(pageText);
+      const eligibility_summary = clampText(
+        eligibilityFromPage ?? trimOrNull(parsed.eligibility_summary),
+        500
+      );
       const location_filters = Array.isArray(parsed.location_filters)
         ? parsed.location_filters.map(String).filter(Boolean)
         : [];
@@ -274,29 +399,70 @@ async function main() {
         ? parsed.income_bands.map(String).filter(Boolean)
         : [];
 
-      const { error: updateError } = await supabase
-        .from("opportunities")
-        .update({
-          description,
-          eligibility_summary,
-          location_filters,
-          sector_filters,
-          income_bands,
-        })
-        .eq("id", opp.id);
+      const updatePayload: Record<string, unknown> = {
+        description,
+        eligibility_summary,
+        location_filters,
+        sector_filters,
+        income_bands,
+      };
 
-      if (updateError) {
-        console.warn(`[${i + 1}/${list.length}] Update failed for ${title}:`, updateError.message);
+      // If amount_min/max are NULL in DB, try parsing from the page.
+      if (opp.amount_min == null && opp.amount_max == null) {
+        const parsedAmt = parseAmountFromText(pageText);
+        if (parsedAmt.min != null) updatePayload.amount_min = parsedAmt.min;
+        if (parsedAmt.max != null) updatePayload.amount_max = parsedAmt.max;
+      }
+
+      // If deadline is NULL in DB, try parsing from the page.
+      if (opp.deadline == null) {
+        const parsedDeadline = parseDeadlineFromText(pageText);
+        if (parsedDeadline) updatePayload.deadline = parsedDeadline;
+      }
+
+      // If not forcing, and we still couldn't extract anything meaningful, skip.
+      const meaningful =
+        Boolean(description) ||
+        Boolean(eligibility_summary) ||
+        location_filters.length > 0 ||
+        sector_filters.length > 0 ||
+        income_bands.length > 0 ||
+        "amount_min" in updatePayload ||
+        "amount_max" in updatePayload ||
+        "deadline" in updatePayload;
+
+      if (!flags.force && !meaningful) {
         skipped++;
-      } else {
+        await sleep(DELAY_MS);
+        continue;
+      }
+
+      if (flags.dryRun) {
         enriched++;
         enrichedIds.push(String(opp.id));
-        console.log(`Enriched ${enriched}/${list.length}: ${title}`);
+        console.log(`[dry-run] Would update: ${title}`, {
+          id: opp.id,
+          ...updatePayload,
+        });
+      } else {
+        const { error: updateError } = await supabase
+          .from("opportunities")
+          .update(updatePayload)
+          .eq("id", opp.id);
+
+        if (updateError) {
+          console.warn(`[${i + 1}/${list.length}] Update failed for ${title}:`, updateError.message);
+          failed++;
+        } else {
+          enriched++;
+          enrichedIds.push(String(opp.id));
+          console.log(`Enriched ${enriched}/${list.length}: ${title}`);
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn(`[${i + 1}/${list.length}] Error for ${title}:`, message);
-      skipped++;
+      failed++;
     }
 
     if (i < list.length - 1) {
@@ -304,10 +470,12 @@ async function main() {
     }
   }
 
-  console.log(`Enriched ${enriched} opportunities, skipped ${alreadyCount ?? 0} (already have data)`);
-  console.log(`Skipped/failed during enrichment: ${skipped}`);
+  console.log("\nSummary:");
+  console.log(`  Enriched: ${enriched}`);
+  console.log(`  Skipped: ${skipped}`);
+  console.log(`  Failed: ${failed}`);
 
-  if (enrichedIds.length === 0) return;
+  if (enrichedIds.length === 0 || flags.dryRun) return;
 
   // Re-score only the enriched opportunities for all organisations.
   const { data: orgRows, error: orgError } = await supabase
