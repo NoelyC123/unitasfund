@@ -55,6 +55,12 @@ export default function DashboardClient({
   const [funder, setFunder] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("FIT");
 
+  const totalMatched = rows.length;
+  const highCount = useMemo(
+    () => rows.filter((r) => r.fit_score >= 75).length,
+    [rows]
+  );
+
   const funderOptions = useMemo(() => {
     const values = new Set<string>();
     for (const r of rows) {
@@ -86,9 +92,9 @@ export default function DashboardClient({
           {orgName}
         </h1>
         <p className="text-sm" style={{ color: "#4a5568" }}>
-          {filteredSorted.length === 0
+          {totalMatched === 0
             ? "No grant opportunities matched yet."
-            : `${filteredSorted.length} ${filteredSorted.length === 1 ? "opportunity" : "opportunities"} matched. Top fit score: ${Math.round(topScore)}%.`}
+            : `${totalMatched} ${totalMatched === 1 ? "opportunity" : "opportunities"} matched — ${highCount} HIGH fit. Top fit score: ${Math.round(topScore)}%.`}
         </p>
       </header>
 
