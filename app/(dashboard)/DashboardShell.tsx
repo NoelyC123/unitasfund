@@ -15,7 +15,7 @@ type NavItem = {
 
 function IconGrid() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="20" height="20" style={{ flexShrink: 0 }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"
         stroke="currentColor"
@@ -27,7 +27,7 @@ function IconGrid() {
 
 function IconList() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="20" height="20" style={{ flexShrink: 0 }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M8 6h13M8 12h13M8 18h13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
@@ -36,7 +36,7 @@ function IconList() {
 
 function IconUser() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="20" height="20" style={{ flexShrink: 0 }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M20 21a8 8 0 1 0-16 0"
         stroke="currentColor"
@@ -54,7 +54,7 @@ function IconUser() {
 
 function IconCog() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="20" height="20" style={{ flexShrink: 0 }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
         stroke="currentColor"
@@ -72,7 +72,7 @@ function IconCog() {
 
 function IconMenu() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="20" height="20" style={{ flexShrink: 0 }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
@@ -80,7 +80,7 @@ function IconMenu() {
 
 function IconX() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="20" height="20" style={{ flexShrink: 0 }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
@@ -88,7 +88,7 @@ function IconX() {
 
 function IconTag() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="20" height="20" style={{ flexShrink: 0 }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M20 13l-7 7-11-11V2h7l11 11Z"
         stroke="currentColor"

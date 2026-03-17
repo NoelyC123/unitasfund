@@ -186,7 +186,10 @@ export default function DashboardClient({
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-[2]">
             <svg
-              className="absolute left-3 top-2.5 w-4 h-4 text-[#6b7280]"
+              width="16"
+              height="16"
+              style={{ flexShrink: 0 }}
+              className="absolute left-3 top-2.5 text-[#6b7280]"
               viewBox="0 0 24 24"
               fill="none"
               aria-hidden="true"
