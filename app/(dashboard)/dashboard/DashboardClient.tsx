@@ -24,6 +24,7 @@ type Row = {
   ev: number | null;
   deadline: string | null;
   amount_text: string | null;
+  last_checked_at?: string | null;
   match_reasons?: string[];
   is_active: boolean;
 };

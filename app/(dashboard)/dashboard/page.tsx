@@ -96,6 +96,7 @@ export default async function DashboardPage() {
         amount_text,
         amount_min,
         amount_max,
+        last_checked_at,
         location_filters,
         sector_filters,
         income_bands,
@@ -172,6 +173,7 @@ export default async function DashboardPage() {
       deadline: (opp?.deadline ?? null) as string | null,
       amount_text: (opp?.amount_text ?? null) as string | null,
       is_active: opp?.is_active !== false,
+      last_checked_at: (opp?.last_checked_at ?? null) as string | null,
       match_reasons: match_reasons ?? [],
     };
   });

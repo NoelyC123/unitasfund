@@ -16,6 +16,33 @@ function clampNotes(v: unknown): string {
   return t;
 }
 
+function toNullableNumber(v: unknown): number | null {
+  if (v == null) return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toNullableInt(v: unknown): number | null {
+  const n = toNullableNumber(v);
+  if (n == null) return null;
+  return Math.round(n);
+}
+
+function clampOutcomeNotes(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  return s.slice(0, 2000);
+}
+
+const LOSS_REASONS = new Set([
+  "eligibility",
+  "competition",
+  "capacity",
+  "timing",
+  "other",
+]);
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,6 +67,10 @@ export async function PUT(
     const body = await request.json();
     const nextStatus = body?.status;
     const nextNotes = body?.notes;
+    const actualAwardAmount = body?.actual_award_amount;
+    const bidHoursEstimate = body?.bid_hours_estimate;
+    const lossReason = body?.loss_reason;
+    const outcomeNotes = body?.outcome_notes;
     const update: Record<string, unknown> = {};
 
     if (nextStatus != null) {
@@ -57,6 +88,21 @@ export async function PUT(
 
     if (nextNotes != null) {
       update.notes = clampNotes(nextNotes);
+    }
+
+    if (actualAwardAmount != null) {
+      update.actual_award_amount = toNullableNumber(actualAwardAmount);
+    }
+    if (bidHoursEstimate != null) {
+      const i = toNullableInt(bidHoursEstimate);
+      update.bid_hours_estimate = i == null ? null : Math.max(0, i);
+    }
+    if (lossReason != null) {
+      const lr = String(lossReason);
+      update.loss_reason = LOSS_REASONS.has(lr) ? lr : null;
+    }
+    if (outcomeNotes != null) {
+      update.outcome_notes = clampOutcomeNotes(outcomeNotes);
     }
 
     if (Object.keys(update).length === 0) {

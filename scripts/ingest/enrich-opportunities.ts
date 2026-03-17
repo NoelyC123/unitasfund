@@ -131,6 +131,22 @@ function clampText(s: string | null, max: number): string | null {
   return t.slice(0, max).trim();
 }
 
+function calculateConfidenceScore(args: {
+  description: string | null;
+  eligibility_summary: string | null;
+  amount_min?: number | null;
+  amount_max?: number | null;
+  deadline?: string | null;
+}): number {
+  let score = 20; // base
+  if (args.description && args.description.trim()) score += 20;
+  if (args.eligibility_summary && args.eligibility_summary.trim()) score += 20;
+  if (args.amount_min != null || args.amount_max != null) score += 20;
+  if (args.deadline && String(args.deadline).trim()) score += 20;
+  score = Math.max(20, Math.min(100, score));
+  return score;
+}
+
 async function callClaude(prompt: string): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -367,6 +383,19 @@ async function main() {
       if (!pageText) {
         console.warn(`[${i + 1}/${list.length}] No page text fetched for: ${title}`);
         failed++;
+        if (!flags.dryRun) {
+          const { error: metaError } = await supabase
+            .from("opportunities")
+            .update({
+              last_checked_at: new Date().toISOString(),
+              data_provenance: "scraped",
+              confidence_score: 20,
+            })
+            .eq("id", opp.id);
+          if (metaError) {
+            console.warn(`[${i + 1}/${list.length}] Failed updating meta for ${title}:`, metaError.message);
+          }
+        }
         await sleep(DELAY_MS);
         continue;
       }
@@ -407,18 +436,43 @@ async function main() {
         income_bands,
       };
 
+      let nextAmountMin: number | null | undefined = undefined;
+      let nextAmountMax: number | null | undefined = undefined;
+      let nextDeadline: string | null | undefined = undefined;
+
       // If amount_min/max are NULL in DB, try parsing from the page.
       if (opp.amount_min == null && opp.amount_max == null) {
         const parsedAmt = parseAmountFromText(pageText);
-        if (parsedAmt.min != null) updatePayload.amount_min = parsedAmt.min;
-        if (parsedAmt.max != null) updatePayload.amount_max = parsedAmt.max;
+        if (parsedAmt.min != null) {
+          updatePayload.amount_min = parsedAmt.min;
+          nextAmountMin = parsedAmt.min;
+        }
+        if (parsedAmt.max != null) {
+          updatePayload.amount_max = parsedAmt.max;
+          nextAmountMax = parsedAmt.max;
+        }
       }
 
       // If deadline is NULL in DB, try parsing from the page.
       if (opp.deadline == null) {
         const parsedDeadline = parseDeadlineFromText(pageText);
-        if (parsedDeadline) updatePayload.deadline = parsedDeadline;
+        if (parsedDeadline) {
+          updatePayload.deadline = parsedDeadline;
+          nextDeadline = parsedDeadline;
+        }
       }
+
+      // Always update data quality meta on successful enrichment attempt.
+      const confidence_score = calculateConfidenceScore({
+        description,
+        eligibility_summary,
+        amount_min: nextAmountMin ?? (opp.amount_min != null ? Number(opp.amount_min) : null),
+        amount_max: nextAmountMax ?? (opp.amount_max != null ? Number(opp.amount_max) : null),
+        deadline: nextDeadline ?? ((opp.deadline as string | null) ?? null),
+      });
+      updatePayload.last_checked_at = new Date().toISOString();
+      updatePayload.data_provenance = "enriched";
+      updatePayload.confidence_score = confidence_score;
 
       // If not forcing, and we still couldn't extract anything meaningful, skip.
       const meaningful =

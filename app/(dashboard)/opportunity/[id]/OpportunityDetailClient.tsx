@@ -87,6 +87,31 @@ function formatMoneyGBP(n: number): string {
   return `£${v.toLocaleString("en-GB")}`;
 }
 
+function confidenceLevel(args: {
+  confidence_score: number | null;
+  amount_min: number | null;
+  deadline: string | null;
+  eligibility_summary: string | null;
+  description: string | null;
+  amount_text: string | null;
+}): "HIGH" | "MEDIUM" | "LOW" {
+  const cs = args.confidence_score ?? 0;
+  if (
+    cs >= 80 ||
+    (args.amount_min != null && Boolean(args.deadline?.trim()) && Boolean(args.eligibility_summary?.trim()))
+  ) {
+    return "HIGH";
+  }
+  if (cs >= 50 || (Boolean(args.description?.trim()) && Boolean(args.amount_text?.trim()))) {
+    return "MEDIUM";
+  }
+  return "LOW";
+}
+
+function roundToNearest5(n: number): number {
+  return Math.round(n / 5) * 5;
+}
+
 export default function OpportunityDetailClient(props: {
   organisationId: string;
   opportunityId: string;
@@ -102,6 +127,8 @@ export default function OpportunityDetailClient(props: {
   fit_score: number;
   fit_breakdown: FitBreakdown;
   ev: number | null;
+  bid_cost_estimate: number | null;
+  confidence_score: number | null;
   match_reasons: string[];
   initialPipeline: null | { id: string; status: PipelineStatus; notes: string | null };
   similar: Array<{
@@ -122,6 +149,31 @@ export default function OpportunityDetailClient(props: {
   const fitScore = props.fit_score;
   const priority = fitPriorityLabel(fitScore);
   const deadlineUi = deadlineBadge(props.deadline);
+
+  const confidence = useMemo(() => {
+    return confidenceLevel({
+      confidence_score: props.confidence_score,
+      amount_min: props.amount_min,
+      deadline: props.deadline,
+      eligibility_summary: props.eligibility_summary,
+      description: props.description,
+      amount_text: props.amount_text,
+    });
+  }, [
+    props.confidence_score,
+    props.amount_min,
+    props.deadline,
+    props.eligibility_summary,
+    props.description,
+    props.amount_text,
+  ]);
+
+  const bidHours = useMemo(() => {
+    if (props.bid_cost_estimate == null || !Number.isFinite(props.bid_cost_estimate)) return null;
+    const hrs = props.bid_cost_estimate / 45;
+    if (!Number.isFinite(hrs) || hrs <= 0) return null;
+    return Math.max(0, roundToNearest5(hrs));
+  }, [props.bid_cost_estimate]);
 
   const componentPercents = useMemo(() => {
     const b = props.fit_breakdown ?? {};
@@ -315,14 +367,56 @@ export default function OpportunityDetailClient(props: {
             {props.ev != null && props.ev > 0 && (
               <div className="rounded-xl border p-5" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
                 <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: GOLD }}>
-                  Expected value
+                  Estimated net EV
                 </p>
                 <p className="text-2xl font-bold tabular-nums" style={{ color: NAVY }}>
                   {formatMoneyGBP(props.ev)}
                 </p>
                 <p className="text-xs" style={{ color: "#6b7280" }}>
                   win probability × award value − bid cost
+                  {bidHours != null ? ` (assumes approx. ${bidHours} hrs to bid @ £45/hr)` : ""} — see funder site for full
+                  criteria
                 </p>
+
+                <div className="mt-4">
+                  <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: GOLD }}>
+                    Data confidence
+                  </p>
+                  <div className="space-y-1 text-sm" style={{ color: NAVY }}>
+                    {([
+                      {
+                        level: "HIGH",
+                        dot: "#22c55e",
+                        note: "Based on verified funder data",
+                      },
+                      {
+                        level: "MEDIUM",
+                        dot: "#f59e0b",
+                        note: "Based on partial data",
+                      },
+                      {
+                        level: "LOW",
+                        dot: "#9ca3af",
+                        note: "Limited data — check funder website",
+                      },
+                    ] as const).map((r) => {
+                      const active = confidence === r.level;
+                      return (
+                        <div key={r.level} className="flex items-start gap-2">
+                          <span
+                            className="mt-1 inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: r.dot, opacity: active ? 1 : 0.25 }}
+                            aria-hidden="true"
+                          />
+                          <div style={{ opacity: active ? 1 : 0.45 }}>
+                            <span className="font-semibold">{r.level}</span>{" "}
+                            <span style={{ color: "#6b7280" }}>{r.note}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -471,6 +565,13 @@ export default function OpportunityDetailClient(props: {
                 )}
               </div>
 
+              {/* Report an issue */}
+              <ReportIssue
+                opportunityId={props.opportunityId}
+                navy={NAVY}
+                gold={GOLD}
+              />
+
               <div>
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <h2 className="text-lg font-bold" style={{ color: NAVY }}>
@@ -566,6 +667,112 @@ export default function OpportunityDetailClient(props: {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ReportIssue(props: { opportunityId: string; navy: string; gold: string }) {
+  const [open, setOpen] = useState(false);
+  const [issueType, setIssueType] = useState<string>("incorrect_information");
+  const [desc, setDesc] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/opportunities/${props.opportunityId}/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issue_type: issueType,
+          description: desc,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error ?? "Failed to submit issue.");
+      setDone(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to submit issue.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <p className="text-sm" style={{ color: "#166534" }}>
+        Thank you — we&apos;ll review this shortly.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="text-sm hover:underline font-semibold"
+        style={{ color: props.gold }}
+        onClick={() => setOpen((v) => !v)}
+      >
+        Report an issue
+      </button>
+      {open && (
+        <div className="mt-3 rounded-xl border p-4" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="space-y-1">
+              <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: props.gold }}>
+                Issue type
+              </span>
+              <select
+                value={issueType}
+                onChange={(e) => setIssueType(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: props.navy }}
+              >
+                <option value="incorrect_information">Incorrect information</option>
+                <option value="closed_or_expired">Grant is closed or expired</option>
+                <option value="wrong_eligibility">Wrong eligibility criteria</option>
+                <option value="broken_link">Broken link</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="mt-3 block space-y-1">
+            <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: props.gold }}>
+              Description (optional)
+            </span>
+            <textarea
+              value={desc}
+              onChange={(e) => setDesc(e.target.value.slice(0, 1000))}
+              rows={4}
+              placeholder="Tell us what's wrong..."
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+              style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: props.navy }}
+            />
+          </label>
+
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={submit}
+              className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: props.gold, color: props.navy }}
+            >
+              {submitting ? "Submitting…" : "Submit"}
+            </button>
+            {error && (
+              <span className="text-sm" style={{ color: "#b91c1c" }}>
+                {error}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

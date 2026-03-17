@@ -249,6 +249,10 @@ function csvRowToOpportunity(row: CsvRow) {
     income_bands: {},
     raw: { source_name: row.source_name },
     last_updated_at: now,
+    last_checked_at: now,
+    // Default provenance for ingestion. We avoid overwriting enriched/360giving later.
+    data_provenance: "scraped",
+    confidence_score: 50,
     is_active: true,
   };
 }
@@ -314,6 +318,7 @@ function dbOpportunityToScoring(row: {
 }
 
 async function main() {
+  const runStartedAt = new Date().toISOString();
   const csvPath = findLatestCsv(SCRAPER_OUTPUT_DIR);
   if (!csvPath) {
     console.error("No opportunities CSV found in", SCRAPER_OUTPUT_DIR);
@@ -329,6 +334,7 @@ async function main() {
     console.log("Excluded", excludedFts, "rows where source_id is 'fts' (tenders).");
   }
 
+  const rowsProcessed = rows.length;
   const filtered = withoutFts.filter((row) => {
     const title = row.title ?? "";
     const trimmed = title.trim();
@@ -373,21 +379,70 @@ async function main() {
   }
 
   const supabase = getSupabaseService();
+  let runSuccess = true;
+  let runErrorMessage: string | null = null;
 
-  const { data: upserted, error: upsertError } = await supabase
-    .from("opportunities")
-    .upsert(opportunities, {
-      onConflict: "source_id,external_id",
-      ignoreDuplicates: false,
-    })
-    .select("id");
+  let upserted: Array<{ id: string }> = [];
+  try {
+    const upsertRes = await supabase
+      .from("opportunities")
+      .upsert(opportunities, {
+        onConflict: "source_id,external_id",
+        ignoreDuplicates: false,
+      })
+      .select("id, data_provenance");
 
-  if (upsertError) {
-    console.error("Upsert opportunities error:", upsertError.message);
+    if (upsertRes.error) {
+      console.error("Upsert opportunities error:", upsertRes.error.message);
+      runSuccess = false;
+      runErrorMessage = upsertRes.error.message;
+      throw upsertRes.error;
+    }
+    upserted = (upsertRes.data ?? []) as Array<{ id: string }>;
+  } catch (e) {
+    // Best-effort run logging happens below.
+    runSuccess = false;
+    runErrorMessage = e instanceof Error ? e.message : String(e);
+  }
+
+  if (!runSuccess) {
+    // Log ingestion run failure if possible.
+    try {
+      await supabase.from("ingestion_runs").insert({
+        run_type: "ingest",
+        rows_processed: rowsProcessed,
+        rows_upserted: 0,
+        rows_skipped: skipped,
+        rows_failed: 1,
+        started_at: runStartedAt,
+        completed_at: new Date().toISOString(),
+        error_message: runErrorMessage,
+        success: false,
+      });
+    } catch {
+      // ignore
+    }
     process.exit(1);
   }
+
   const ingestedCount = opportunities.length;
   console.log("Ingested", ingestedCount, "opportunities.");
+
+  // Data quality: mark last_checked_at for all touched rows; set provenance to 'scraped'
+  // but do NOT overwrite enriched/360giving.
+  const touchedIds = upserted.map((r) => r.id).filter(Boolean);
+  if (touchedIds.length > 0) {
+    const now = new Date().toISOString();
+    await supabase
+      .from("opportunities")
+      .update({ last_checked_at: now })
+      .in("id", touchedIds);
+    await supabase
+      .from("opportunities")
+      .update({ data_provenance: "scraped" })
+      .in("id", touchedIds)
+      .not("data_provenance", "in", '("enriched","360giving")');
+  }
 
   const currentKeys = new Set<string>();
   for (const o of opportunities) {
@@ -480,6 +535,7 @@ async function main() {
     ev: number;
     win_probability: number;
     bid_cost_estimate: number;
+    scoring_version: string;
     computed_at: string;
   }[] = [];
   const profiles = (orgs as Record<string, unknown>[]).map(dbOrgToProfile);
@@ -500,6 +556,7 @@ async function main() {
         ev: result.ev.expected_value,
         win_probability: result.ev.win_probability,
         bid_cost_estimate: result.ev.bid_cost_estimate,
+        scoring_version: "v1",
         computed_at: new Date().toISOString(),
       });
     }
@@ -559,6 +616,23 @@ async function main() {
   });
 
   console.log("Summary:", ingestedCount, "opportunities ingested,", scoresCount, "scores computed.");
+
+  // Log ingestion run success
+  try {
+    await supabase.from("ingestion_runs").insert({
+      run_type: "ingest",
+      rows_processed: rowsProcessed,
+      rows_upserted: touchedIds.length,
+      rows_skipped: skipped,
+      rows_failed: 0,
+      started_at: runStartedAt,
+      completed_at: new Date().toISOString(),
+      error_message: null,
+      success: true,
+    });
+  } catch {
+    // ignore
+  }
 }
 
 main().catch((err) => {

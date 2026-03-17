@@ -68,6 +68,7 @@ async function fetchScoreRowWithOptionalReasons(args: {
     fit_score,
     fit_breakdown,
     ev,
+    bid_cost_estimate,
     opportunities!inner (
       id,
       source_id,
@@ -78,6 +79,7 @@ async function fetchScoreRowWithOptionalReasons(args: {
       amount_text,
       amount_min,
       amount_max,
+      confidence_score,
       location_filters,
       sector_filters,
       income_bands,
@@ -214,6 +216,9 @@ export default async function OpportunityDetailPage({
   const fitScore = Number(scoreRow.fit_score ?? 0);
   const fitBreakdown = breakdownFromRow(scoreRow.fit_breakdown);
   const ev = scoreRow.ev != null ? Number(scoreRow.ev) : null;
+  const bidCostEstimate = scoreRow.bid_cost_estimate != null ? Number(scoreRow.bid_cost_estimate) : null;
+  const confidenceScore =
+    opp?.confidence_score != null ? Number(opp.confidence_score) : null;
 
   const opportunityForReasons: Opportunity = {
     id: String(opp?.id ?? id),
@@ -299,6 +304,8 @@ export default async function OpportunityDetailPage({
       fit_score={fitScore}
       fit_breakdown={fitBreakdown}
       ev={ev}
+      bid_cost_estimate={bidCostEstimate}
+      confidence_score={confidenceScore}
       match_reasons={reasons}
       initialPipeline={
         existingPipeline?.id

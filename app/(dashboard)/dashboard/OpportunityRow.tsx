@@ -27,6 +27,7 @@ type ScoredOpportunity = {
   ev: number | null;
   deadline: string | null;
   amount_text: string | null;
+  last_checked_at?: string | null;
   match_reasons?: string[];
 };
 
@@ -73,6 +74,22 @@ function formatEv(ev: number | null): string {
   return `£${n.toLocaleString("en-GB")}`;
 }
 
+function lastCheckedLabel(lastCheckedAt?: string | null): { text: string; color: string } | null {
+  if (!lastCheckedAt || !lastCheckedAt.trim()) {
+    return { text: "Not yet verified", color: "#6b7280" };
+  }
+  const d = new Date(lastCheckedAt);
+  const t = d.getTime();
+  if (Number.isNaN(t)) return { text: "Not yet verified", color: "#6b7280" };
+  const diffDays = Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24));
+  if (diffDays < 1) return null; // within 24h: show nothing
+  if (diffDays <= 7) return { text: `Checked ${diffDays} day${diffDays === 1 ? "" : "s"} ago`, color: "#6b7280" };
+  return {
+    text: `Last checked ${diffDays} day${diffDays === 1 ? "" : "s"} ago`,
+    color: "#92400e",
+  };
+}
+
 /** HIGH 75%+, MEDIUM 50–74%, LOW &lt;50% */
 function fitPriorityLabel(score: number): { label: string; bg: string; text: string } {
   if (score >= 75) return { label: "HIGH", bg: "#dcfce7", text: "#166534" };
@@ -103,6 +120,7 @@ export default function OpportunityRow({
 
   const priority = fitPriorityLabel(row.fit_score);
   const deadlineUi = deadlineBadge(row.deadline);
+  const lastChecked = lastCheckedLabel(row.last_checked_at);
 
   async function addToPipeline() {
     setAdding(true);
@@ -156,6 +174,11 @@ export default function OpportunityRow({
           {row.funder_name && (
             <p className="text-sm truncate mt-0.5" style={{ color: "#4a5568" }}>
               {row.funder_name}
+            </p>
+          )}
+          {lastChecked && (
+            <p className="text-xs mt-1" style={{ color: lastChecked.color }}>
+              {lastChecked.text}
             </p>
           )}
         </div>
