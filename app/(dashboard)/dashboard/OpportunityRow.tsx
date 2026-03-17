@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
@@ -39,6 +40,19 @@ function formatDeadline(d: string | null): string {
   return `${day} ${month} ${year}`;
 }
 
+function deadlineBadge(deadline: string | null): { label: string; bg: string; text: string } {
+  if (!deadline || !deadline.trim()) {
+    return { label: "Rolling", bg: "#e0f2fe", text: "#075985" };
+  }
+  const d = new Date(deadline.trim());
+  const t = d.getTime();
+  if (Number.isNaN(t)) return { label: deadline, bg: "#e5e7eb", text: "#374151" };
+  const diffDays = (t - Date.now()) / (1000 * 60 * 60 * 24);
+  if (diffDays < 14) return { label: formatDeadline(deadline), bg: "#fee2e2", text: "#991b1b" };
+  if (diffDays < 28) return { label: formatDeadline(deadline), bg: "#fef3c7", text: "#92400e" };
+  return { label: formatDeadline(deadline), bg: "#dcfce7", text: "#166534" };
+}
+
 function fitColour(score: number): string {
   if (score >= 75) return "#22c55e";
   if (score >= 50) return "#f59e0b";
@@ -73,6 +87,7 @@ export default function OpportunityRow({
 }: {
   row: ScoredOpportunity;
 }) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
@@ -87,6 +102,7 @@ export default function OpportunityRow({
   const reasons = row.match_reasons ?? [];
 
   const priority = fitPriorityLabel(row.fit_score);
+  const deadlineUi = deadlineBadge(row.deadline);
 
   async function addToPipeline() {
     setAdding(true);
@@ -104,10 +120,16 @@ export default function OpportunityRow({
 
   return (
     <div
-      className="rounded-xl border overflow-hidden"
+      className="rounded-xl border overflow-hidden cursor-pointer"
       style={{
         backgroundColor: "#fff",
         borderColor: "#ece6dd",
+      }}
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(`/opportunity/${row.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") router.push(`/opportunity/${row.id}`);
       }}
     >
       <div
@@ -120,14 +142,17 @@ export default function OpportunityRow({
         >
           #{row.rank}
         </span>
+        <div
+          className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold"
+          style={{ backgroundColor: GOLD, color: NAVY }}
+          aria-hidden="true"
+        >
+          {(row.funder_name?.trim()?.[0] ?? "U").toUpperCase()}
+        </div>
         <div className="min-w-0 flex-1 min-w-[200px]">
-          <a
-            href={`/opportunity/${row.id}`}
-            className="font-medium hover:underline block truncate"
-            style={{ color: NAVY }}
-          >
+          <div className="font-medium block truncate" style={{ color: NAVY }}>
             {row.title}
-          </a>
+          </div>
           {row.funder_name && (
             <p className="text-sm truncate mt-0.5" style={{ color: "#4a5568" }}>
               {row.funder_name}
@@ -166,8 +191,13 @@ export default function OpportunityRow({
               {formatEv(row.ev)}
             </span>
           </span>
-          <span className="text-sm w-28 text-right" style={{ color: "#4a5568" }}>
-            {formatDeadline(row.deadline)}
+          <span className="w-28 text-right">
+            <span
+              className="text-xs font-semibold px-2 py-1 rounded inline-block"
+              style={{ backgroundColor: deadlineUi.bg, color: deadlineUi.text }}
+            >
+              {deadlineUi.label}
+            </span>
           </span>
           <button
             type="button"
@@ -175,6 +205,7 @@ export default function OpportunityRow({
             className="flex items-center gap-1 text-sm font-medium hover:underline"
             style={{ color: GOLD }}
             aria-expanded={expanded}
+            onClickCapture={(e) => e.stopPropagation()}
           >
             {expanded ? "Hide details" : "Why this score?"}
             <span
@@ -193,6 +224,7 @@ export default function OpportunityRow({
               backgroundColor: added ? "#22c55e" : GOLD,
               color: added ? CREAM : NAVY,
             }}
+            onClickCapture={(e) => e.stopPropagation()}
           >
             {added ? "In pipeline" : adding ? "Adding…" : "Add to pipeline"}
           </button>
