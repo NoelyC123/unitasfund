@@ -112,19 +112,41 @@ export default function SettingsClient(props: {
       : null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#1a1f2e]">Settings</h1>
-        <p className="text-sm text-[#6b7280] mt-1">Manage your alerts and account preferences.</p>
-      </div>
+    <div style={{ maxWidth: "672px", margin: "0 auto", padding: "32px 24px" }}>
+      <h1 style={{ fontSize: "24px", fontWeight: "bold", color: "#1a1f2e", marginBottom: "8px" }}>Settings</h1>
+      <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "32px" }}>
+        Manage your alerts and account preferences.
+      </p>
 
-      <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-6 mb-4">
-        <h2 className="text-base font-semibold text-[#1a1f2e] mb-4">Alert preferences</h2>
+      <div
+        style={{
+          backgroundColor: "white",
+          borderRadius: "12px",
+          border: "1px solid #e8e3da",
+          padding: "24px",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+          marginBottom: "16px",
+        }}
+      >
+        <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#1a1f2e", marginBottom: "16px" }}>
+          Alert preferences
+        </h2>
 
-        <div className="flex items-center justify-between py-3 border-b border-[#f0ece4]">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 0",
+            borderBottom: "1px solid #f0ece4",
+            gap: "16px",
+          }}
+        >
           <div>
-            <p className="text-sm font-medium text-[#1a1f2e]">Email me when new matches are found</p>
-            <p className="text-xs text-[#6b7280] mt-0.5">
+            <p style={{ fontSize: "14px", fontWeight: 500, color: "#1a1f2e" }}>
+              Email me when new matches are found
+            </p>
+            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
               We'll email you when new opportunities meet your minimum score.
             </p>
           </div>
@@ -132,37 +154,76 @@ export default function SettingsClient(props: {
             role="switch"
             aria-checked={alertsEnabled}
             onClick={() => setAlertsEnabled((v) => !v)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:ring-offset-2 ${
-              alertsEnabled ? "bg-[#c9923a]" : "bg-gray-200"
-            }`}
             type="button"
+            style={{
+              width: "44px",
+              height: "24px",
+              borderRadius: "999px",
+              border: "none",
+              cursor: "pointer",
+              backgroundColor: alertsEnabled ? "#c9923a" : "#e5e7eb",
+              position: "relative",
+              flexShrink: 0,
+            }}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-                alertsEnabled ? "translate-x-6" : "translate-x-1"
-              }`}
+              style={{
+                width: "16px",
+                height: "16px",
+                borderRadius: "999px",
+                backgroundColor: "white",
+                position: "absolute",
+                top: "4px",
+                left: alertsEnabled ? "24px" : "4px",
+                transition: "left 200ms ease",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+              }}
             />
           </button>
         </div>
 
-        <div className="py-3 border-b border-[#f0ece4]">
-          <label className="block text-xs font-medium text-[#6b7280] uppercase tracking-wider mb-2">Frequency</label>
+        <div style={{ padding: "12px 0", borderBottom: "1px solid #f0ece4" }}>
+          <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "8px" }}>
+            Frequency
+          </label>
           <select
             value={frequency}
             onChange={(e) => setFrequency(e.target.value as AlertFrequency)}
-            className="w-full sm:w-48 py-2 px-3 text-sm rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] focus:outline-none focus:ring-2 focus:ring-[#c9923a]"
+            style={{
+              width: "100%",
+              maxWidth: "192px",
+              padding: "8px 12px",
+              borderRadius: "8px",
+              border: "1px solid #e8e3da",
+              backgroundColor: "white",
+              color: "#1a1f2e",
+              fontSize: "14px",
+              outline: "none",
+            }}
           >
             <option value="weekly">Weekly</option>
             <option value="daily">Daily</option>
           </select>
         </div>
 
-        <div className="py-3">
-          <label className="block text-xs font-medium text-[#6b7280] uppercase tracking-wider mb-2">Minimum score</label>
+        <div style={{ padding: "12px 0" }}>
+          <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "8px" }}>
+            Minimum score
+          </label>
           <select
             value={minScore}
             onChange={(e) => setMinScore(Number(e.target.value) as MinScore)}
-            className="w-full sm:w-48 py-2 px-3 text-sm rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] focus:outline-none focus:ring-2 focus:ring-[#c9923a]"
+            style={{
+              width: "100%",
+              maxWidth: "192px",
+              padding: "8px 12px",
+              borderRadius: "8px",
+              border: "1px solid #e8e3da",
+              backgroundColor: "white",
+              color: "#1a1f2e",
+              fontSize: "14px",
+              outline: "none",
+            }}
           >
             <option value="40">40% and above</option>
             <option value="60">60% and above</option>
@@ -172,61 +233,105 @@ export default function SettingsClient(props: {
         </div>
 
         {(saved || error) && (
-          <div className="mt-2">
-            {saved && <p className="text-sm text-green-600 font-medium">{saved}</p>}
-            {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+          <div style={{ marginTop: "8px" }}>
+            {saved && <p style={{ fontSize: "14px", color: "#16a34a", fontWeight: 500 }}>{saved}</p>}
+            {error && <p style={{ fontSize: "14px", color: "#dc2626", fontWeight: 500 }}>{error}</p>}
           </div>
         )}
 
-        <div className="mt-4 pt-4 border-t border-[#f0ece4]">
+        <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #f0ece4" }}>
           <button
             type="button"
             onClick={save}
             disabled={saving || !dirty}
-            className="px-6 py-2.5 bg-[#c9923a] text-white font-medium rounded-lg text-sm hover:opacity-90 transition-opacity shadow-sm disabled:opacity-60"
+            style={{
+              backgroundColor: "#c9923a",
+              color: "white",
+              padding: "10px 24px",
+              borderRadius: "8px",
+              border: "none",
+              fontSize: "14px",
+              fontWeight: 600,
+              cursor: saving || !dirty ? "default" : "pointer",
+              opacity: saving || !dirty ? 0.6 : 1,
+            }}
           >
             {saving ? "Saving…" : "Save preferences"}
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-6 mb-4">
-        <h2 className="text-base font-semibold text-[#1a1f2e] mb-4">Account</h2>
-        <div className="py-3 border-b border-[#f0ece4] flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-[#6b7280] uppercase tracking-wider mb-1">Email</p>
-            <p className="text-sm text-[#1a1f2e]">{props.email}</p>
-          </div>
+      <div
+        style={{
+          backgroundColor: "white",
+          borderRadius: "12px",
+          border: "1px solid #e8e3da",
+          padding: "24px",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+          marginBottom: "16px",
+        }}
+      >
+        <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#1a1f2e", marginBottom: "16px" }}>Account</h2>
+        <div style={{ padding: "12px 0", borderBottom: "1px solid #f0ece4" }}>
+          <p style={{ fontSize: "12px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
+            Email
+          </p>
+          <p style={{ fontSize: "14px", color: "#1a1f2e" }}>{props.email}</p>
         </div>
-        <div className="pt-4">
+        <div style={{ paddingTop: "16px" }}>
           <button
             onClick={sendPasswordReset}
             disabled={sendingReset}
-            className="text-sm text-[#c9923a] hover:underline font-medium disabled:opacity-60"
             type="button"
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "#c9923a",
+              cursor: sendingReset ? "default" : "pointer",
+              opacity: sendingReset ? 0.6 : 1,
+            }}
           >
             {sendingReset ? "Sending…" : "Change password →"}
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-6">
-        <h2 className="text-base font-semibold text-[#1a1f2e] mb-4">Plan</h2>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div
+        style={{
+          backgroundColor: "white",
+          borderRadius: "12px",
+          border: "1px solid #e8e3da",
+          padding: "24px",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+        }}
+      >
+        <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#1a1f2e", marginBottom: "16px" }}>Plan</h2>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
           <div>
-            <p className="text-sm font-medium text-[#1a1f2e]">{sub.loading ? "Loading…" : planName}</p>
-            {nextBilling && <p className="text-xs text-[#6b7280] mt-1">Next billing date: {nextBilling}</p>}
+            <p style={{ fontSize: "14px", fontWeight: 600, color: "#1a1f2e" }}>{sub.loading ? "Loading…" : planName}</p>
+            {nextBilling && <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>Next billing date: {nextBilling}</p>}
             {!sub.loading && sub.plan === "free" && (
-              <p className="text-xs text-[#6b7280] mt-1">
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
                 Upgrade to unlock full match reasons, EV detail and unlimited pipeline.
               </p>
             )}
           </div>
-
           {sub.plan === "free" ? (
             <a
               href="/pricing"
-              className="px-6 py-2.5 bg-[#c9923a] text-white font-medium rounded-lg text-sm hover:opacity-90 transition-opacity shadow-sm"
+              style={{
+                display: "inline-block",
+                backgroundColor: "#c9923a",
+                color: "white",
+                padding: "10px 24px",
+                borderRadius: "8px",
+                textDecoration: "none",
+                fontSize: "14px",
+                fontWeight: 600,
+              }}
             >
               Upgrade →
             </a>
@@ -235,7 +340,17 @@ export default function SettingsClient(props: {
               type="button"
               onClick={manageBilling}
               disabled={billingLoading}
-              className="px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm font-medium hover:bg-[#f7f4ef] disabled:opacity-60"
+              style={{
+                backgroundColor: "white",
+                color: "#1a1f2e",
+                border: "1px solid #e8e3da",
+                padding: "10px 16px",
+                borderRadius: "8px",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: billingLoading ? "default" : "pointer",
+                opacity: billingLoading ? 0.6 : 1,
+              }}
             >
               {billingLoading ? "Opening…" : "Manage billing →"}
             </button>

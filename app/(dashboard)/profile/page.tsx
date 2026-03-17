@@ -42,11 +42,13 @@ export default async function ProfilePage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#1a1f2e]">Organisation Profile</h1>
-        <p className="text-sm text-[#6b7280] mt-1">Updating your profile will re-score all opportunities.</p>
-      </div>
+    <div style={{ maxWidth: "672px", margin: "0 auto", padding: "32px 24px" }}>
+      <h1 style={{ fontSize: "24px", fontWeight: "bold", color: "#1a1f2e", marginBottom: "8px" }}>
+        Organisation Profile
+      </h1>
+      <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "32px" }}>
+        Updating your profile will re-score all opportunities.
+      </p>
 
       <ProfileForm initial={initial} />
     </div>

@@ -104,20 +104,16 @@ export default async function PipelinePage() {
       </div>
 
       {items.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm py-16 text-center">
-          <div className="w-12 h-12 rounded-full bg-[#f0ece4] flex items-center justify-center mx-auto">
-            <svg className="w-6 h-6 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M8 6h13M8 12h13M8 18h13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              <path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-[#1a1f2e] mt-4">No applications tracked yet</h3>
+        <div className="bg-white rounded-xl border border-[#e8e3da] p-16 text-center">
+          <p className="text-4xl mb-4">📋</p>
+          <h3 className="text-lg font-semibold text-[#1a1f2e]">No applications tracked yet</h3>
           <p className="text-sm text-[#6b7280] mt-2 max-w-sm mx-auto">
             Find grants on your dashboard and add them to your pipeline to track progress.
           </p>
           <a
             href="/dashboard"
-            className="inline-block mt-6 px-6 py-2.5 bg-[#c9923a] text-white font-medium rounded-lg text-sm hover:opacity-90 transition-opacity shadow-sm"
+            style={{ backgroundColor: "#c9923a", color: "white" }}
+            className="inline-block mt-6 px-6 py-2.5 rounded-lg text-sm font-medium hover:opacity-90"
           >
             Go to dashboard →
           </a>

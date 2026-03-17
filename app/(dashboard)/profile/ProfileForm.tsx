@@ -75,79 +75,189 @@ export default function ProfileForm({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-6 sm:p-8">
-      <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Organisation name</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent placeholder-[#9ca3af]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Organisation type</label>
-          <select
-            value={orgType}
-            onChange={(e) => setOrgType(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
-          >
-            {ORG_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Location / region</label>
-          <input
-            value={locationRegion}
-            onChange={(e) => setLocationRegion(e.target.value)}
-            placeholder="e.g. Cumbria, North West, UK-wide"
-            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent placeholder-[#9ca3af]"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Annual income band</label>
-          <select
-            value={incomeBand}
-            onChange={(e) => setIncomeBand(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
-          >
-            <option value="">Select…</option>
-            {INCOME_BANDS.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-[#1a1f2e] mb-1.5">Sectors (comma-separated)</label>
-          <input
-            value={sectorsText}
-            onChange={(e) => setSectorsText(e.target.value)}
-            placeholder="e.g. community, health, arts & culture"
-            className="w-full px-4 py-2.5 rounded-lg border border-[#e8e3da] bg-white text-[#1a1f2e] text-sm focus:outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent placeholder-[#9ca3af]"
-          />
-        </div>
+    <div
+      style={{
+        backgroundColor: "white",
+        borderRadius: "12px",
+        border: "1px solid #e8e3da",
+        padding: "32px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+      }}
+    >
+      <div style={{ marginBottom: "24px" }}>
+        <label
+          style={{
+            display: "block",
+            fontSize: "14px",
+            fontWeight: 500,
+            color: "#1a1f2e",
+            marginBottom: "6px",
+          }}
+        >
+          Organisation name
+        </label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            border: "1px solid #e8e3da",
+            fontSize: "14px",
+            color: "#1a1f2e",
+            outline: "none",
+            backgroundColor: "white",
+          }}
+        />
       </div>
 
-      <div className="mt-8 pt-6 border-t border-[#e8e3da] flex items-center justify-between">
-        <div>
-          {savedMessage && <p className="text-sm text-green-600 font-medium">{savedMessage}</p>}
-          {errorMessage && <p className="text-sm text-red-600 font-medium">{errorMessage}</p>}
-        </div>
+      <div style={{ marginBottom: "24px" }}>
+        <label
+          style={{
+            display: "block",
+            fontSize: "14px",
+            fontWeight: 500,
+            color: "#1a1f2e",
+            marginBottom: "6px",
+          }}
+        >
+          Organisation type
+        </label>
+        <select
+          value={orgType}
+          onChange={(e) => setOrgType(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            border: "1px solid #e8e3da",
+            fontSize: "14px",
+            color: "#1a1f2e",
+            outline: "none",
+            backgroundColor: "white",
+          }}
+        >
+          {ORG_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ marginBottom: "24px" }}>
+        <label
+          style={{
+            display: "block",
+            fontSize: "14px",
+            fontWeight: 500,
+            color: "#1a1f2e",
+            marginBottom: "6px",
+          }}
+        >
+          Location / region
+        </label>
+        <input
+          value={locationRegion}
+          onChange={(e) => setLocationRegion(e.target.value)}
+          placeholder="e.g. Cumbria, North West, UK-wide"
+          style={{
+            width: "100%",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            border: "1px solid #e8e3da",
+            fontSize: "14px",
+            color: "#1a1f2e",
+            outline: "none",
+            backgroundColor: "white",
+          }}
+        />
+      </div>
+
+      <div style={{ marginBottom: "24px" }}>
+        <label
+          style={{
+            display: "block",
+            fontSize: "14px",
+            fontWeight: 500,
+            color: "#1a1f2e",
+            marginBottom: "6px",
+          }}
+        >
+          Annual income band
+        </label>
+        <select
+          value={incomeBand}
+          onChange={(e) => setIncomeBand(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            border: "1px solid #e8e3da",
+            fontSize: "14px",
+            color: "#1a1f2e",
+            outline: "none",
+            backgroundColor: "white",
+          }}
+        >
+          <option value="">Select…</option>
+          {INCOME_BANDS.map((b) => (
+            <option key={b} value={b}>
+              {b}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ marginBottom: "24px" }}>
+        <label
+          style={{
+            display: "block",
+            fontSize: "14px",
+            fontWeight: 500,
+            color: "#1a1f2e",
+            marginBottom: "6px",
+          }}
+        >
+          Sectors (comma-separated)
+        </label>
+        <input
+          value={sectorsText}
+          onChange={(e) => setSectorsText(e.target.value)}
+          placeholder="e.g. community, health, arts & culture"
+          style={{
+            width: "100%",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            border: "1px solid #e8e3da",
+            fontSize: "14px",
+            color: "#1a1f2e",
+            outline: "none",
+            backgroundColor: "white",
+          }}
+        />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+        {savedMessage && <p style={{ fontSize: "14px", color: "#16a34a", fontWeight: 500 }}>{savedMessage}</p>}
+        {errorMessage && <p style={{ fontSize: "14px", color: "#dc2626", fontWeight: 500 }}>{errorMessage}</p>}
         <button
           type="button"
           onClick={onSave}
           disabled={saving}
-          className="ml-auto px-6 py-2.5 bg-[#c9923a] text-white font-medium rounded-lg text-sm hover:opacity-90 transition-opacity shadow-sm disabled:opacity-60"
+          style={{
+            marginLeft: "auto",
+            backgroundColor: "#c9923a",
+            color: "white",
+            padding: "10px 24px",
+            borderRadius: "8px",
+            border: "none",
+            fontSize: "14px",
+            fontWeight: 500,
+            cursor: saving ? "default" : "pointer",
+            opacity: saving ? 0.7 : 1,
+          }}
         >
           {saving ? "Saving…" : "Save profile"}
         </button>

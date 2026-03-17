@@ -89,131 +89,156 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="space-y-10">
-      <header className="text-center">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-3" style={{ color: NAVY }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#f7f4ef" }}>
+      <div style={{ textAlign: "center", padding: "64px 24px 48px" }}>
+        <h1 style={{ fontSize: "36px", fontWeight: "bold", color: "#1a1f2e", marginBottom: "16px" }}>
           Simple, transparent pricing
         </h1>
-        <p className="text-base sm:text-lg" style={{ color: MUTED }}>
+        <p style={{ fontSize: "18px", color: "#6b7280" }}>
           Find more grants. Win more funding. Cancel any time.
         </p>
-      </header>
+      </div>
 
       {error && (
-        <div className="rounded-xl border px-4 py-3" style={{ borderColor: "#fecaca", backgroundColor: "#fff1f2", color: "#991b1b" }}>
-          {error}
+        <div
+          style={{
+            maxWidth: "1100px",
+            margin: "0 auto 24px",
+            padding: "0 24px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#fff1f2",
+              border: "1px solid #fecaca",
+              color: "#991b1b",
+              borderRadius: "12px",
+              padding: "12px 16px",
+              fontSize: "14px",
+              fontWeight: 500,
+            }}
+          >
+            {error}
+          </div>
         </div>
       )}
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div
+        style={{
+          maxWidth: "1100px",
+          margin: "0 auto",
+          padding: "0 24px 64px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: "24px",
+        }}
+      >
         {cards.map((plan) => {
           const id = plan.id as PlanId;
-          const isPopular = id === "pro";
-          const buttonLabel =
-            id === "free" ? "Get started free" : `Start ${PLANS[id].name}`;
+          const popular = id === "pro";
+
+          const priceRaw = (PLANS[id] as any).monthlyPrice as number | undefined;
+          const price = id === "free" ? 0 : priceRaw ?? 0;
+
+          const cta = id === "free" ? "Get started free" : `Start ${PLANS[id].name}`;
 
           return (
             <div
               key={id}
-              className="rounded-2xl border overflow-hidden shadow-sm"
               style={{
-                borderColor: isPopular ? GOLD : BORDER,
-                backgroundColor: "#fff",
+                backgroundColor: "white",
+                borderRadius: "16px",
+                border: popular ? "2px solid #c9923a" : "1px solid #e8e3da",
+                padding: "32px 24px",
+                boxShadow: popular ? "0 4px 24px rgba(201,146,58,0.15)" : "0 1px 3px rgba(0,0,0,0.08)",
+                position: "relative",
               }}
             >
-              {isPopular && (
-                <div className="px-4 py-2 text-xs font-semibold tracking-widest uppercase" style={{ backgroundColor: GOLD, color: NAVY }}>
+              {popular && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "-12px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    backgroundColor: "#c9923a",
+                    color: "white",
+                    padding: "4px 16px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   Most popular
                 </div>
               )}
-              <div className="p-6 space-y-4">
-                <div>
-                  <div className="text-xl font-bold" style={{ color: NAVY }}>
-                    {plan.name}
-                  </div>
-                  <div className="mt-2 text-3xl font-bold" style={{ color: GOLD }}>
-                    {formatPrice(id)}
-                  </div>
-                </div>
 
-                <ul className="space-y-2">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm" style={{ color: "#374151" }}>
-                      <span className="mt-0.5" style={{ color: GOLD }}>
-                        <CheckIcon />
-                      </span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
+              <h2 style={{ fontSize: "20px", fontWeight: "bold", color: "#1a1f2e", marginBottom: "8px" }}>
+                {plan.name}
+              </h2>
 
-                <button
-                  type="button"
-                  onClick={() => startCheckout(id)}
-                  disabled={loadingPlan === id}
-                  className="w-full mt-2 text-sm font-semibold px-5 py-3 rounded-xl hover:opacity-90 disabled:opacity-60"
-                  style={{
-                    backgroundColor: id === "free" ? NAVY : GOLD,
-                    color: id === "free" ? CREAM : NAVY,
-                  }}
-                >
-                  {loadingPlan === id ? "Loading…" : buttonLabel}
-                </button>
-
-                {id === "free" && (
-                  <p className="text-xs" style={{ color: MUTED }}>
-                    Already have an account?{" "}
-                    <Link href="/login" className="font-semibold hover:underline" style={{ color: GOLD }}>
-                      Log in
-                    </Link>
-                  </p>
+              <div style={{ marginBottom: "24px" }}>
+                {price === 0 ? (
+                  <span style={{ fontSize: "32px", fontWeight: "bold", color: "#1a1f2e" }}>Free</span>
+                ) : (
+                  <>
+                    <span style={{ fontSize: "32px", fontWeight: "bold", color: "#1a1f2e" }}>£{price}</span>
+                    <span style={{ fontSize: "14px", color: "#6b7280" }}>/mo</span>
+                  </>
                 )}
               </div>
+
+              <ul style={{ listStyle: "none", padding: 0, marginBottom: "32px" }}>
+                {plan.features.map((f: string, i: number) => (
+                  <li
+                    key={`${id}-${i}`}
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      alignItems: "flex-start",
+                      marginBottom: "12px",
+                      fontSize: "14px",
+                      color: "#374151",
+                    }}
+                  >
+                    <span style={{ color: "#c9923a", fontWeight: "bold", flexShrink: 0 }}>✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: loadingPlan === id ? "default" : "pointer",
+                  backgroundColor: popular ? "#c9923a" : "#1a1f2e",
+                  color: "white",
+                  opacity: loadingPlan === id ? 0.7 : 1,
+                }}
+                disabled={loadingPlan === id}
+                onClick={() => startCheckout(id)}
+              >
+                {loadingPlan === id ? "Loading…" : cta}
+              </button>
+
+              {id === "free" && (
+                <p style={{ marginTop: "12px", fontSize: "12px", color: "#6b7280" }}>
+                  Already have an account?{" "}
+                  <Link href="/login" style={{ color: "#c9923a", fontWeight: 600, textDecoration: "none" }}>
+                    Log in
+                  </Link>
+                </p>
+              )}
             </div>
           );
         })}
-      </section>
-
-      <section className="rounded-2xl border p-6 sm:p-8 space-y-6" style={{ borderColor: BORDER, backgroundColor: "#fff" }}>
-        <h2 className="text-xl font-bold" style={{ color: NAVY }}>
-          FAQ
-        </h2>
-
-        <div className="space-y-4">
-          <div>
-            <p className="font-semibold" style={{ color: NAVY }}>
-              Can I cancel any time?
-            </p>
-            <p className="text-sm" style={{ color: MUTED }}>
-              Yes — cancel any time from your account settings. No long-term contracts.
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold" style={{ color: NAVY }}>
-              What happens when I upgrade?
-            </p>
-            <p className="text-sm" style={{ color: MUTED }}>
-              Your account upgrades instantly. You'll be billed pro-rata for the remainder of the month.
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold" style={{ color: NAVY }}>
-              Do you offer discounts for charities?
-            </p>
-            <p className="text-sm" style={{ color: MUTED }}>
-              Yes — contact us at unitasconnect@hotmail.com for charity and CVS organisation pricing.
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold" style={{ color: NAVY }}>
-              Is there a free trial?
-            </p>
-            <p className="text-sm" style={{ color: MUTED }}>
-              The free tier is available indefinitely. Paid plans can be cancelled within 30 days for a full refund.
-            </p>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }

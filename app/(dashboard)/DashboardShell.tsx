@@ -126,31 +126,51 @@ export default function DashboardShell(props: {
   return (
     <>
       {/* Desktop sidebar (lg+) */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-60 z-50 bg-[#1a1f2e] flex-col">
+      <div
+        style={{
+          width: "240px",
+          backgroundColor: "#1a1f2e",
+          position: "fixed",
+          left: 0,
+          top: 0,
+          height: "100vh",
+          zIndex: 50,
+          display: "flex",
+          flexDirection: "column",
+        }}
+        className="hidden lg:flex"
+        aria-label="Sidebar navigation"
+      >
         {/* Top section */}
-        <div className="p-6">
-          <Link href="/dashboard" className="text-xl font-bold" onClick={() => setMobileOpen(false)}>
-            <span className="text-white">Unitas</span>
-            <span className="text-[#c9923a]">Fund</span>
+        <div style={{ padding: "24px" }}>
+          <Link href="/dashboard" onClick={() => setMobileOpen(false)} style={{ textDecoration: "none" }}>
+            <span style={{ color: "white", fontWeight: "bold", fontSize: "20px" }}>Unitas</span>
+            <span style={{ color: "#c9923a", fontWeight: "bold", fontSize: "20px" }}>Fund</span>
           </Link>
         </div>
 
         {/* Nav section */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav style={{ flex: 1, padding: "0 12px" }}>
           {items.map((it) => {
             const active = isActive(it.href);
             return (
               <Link
                 key={it.href}
                 href={it.href}
-                className={[
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                  active
-                    ? "bg-white/10 text-white font-medium"
-                    : "text-white/60 hover:text-white hover:bg-white/5",
-                ].join(" ")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  textDecoration: "none",
+                  marginBottom: "4px",
+                  color: active ? "white" : "rgba(255,255,255,0.6)",
+                  backgroundColor: active ? "rgba(255,255,255,0.1)" : "transparent",
+                }}
               >
-                <span className="shrink-0">{it.icon}</span>
+                <span style={{ flexShrink: 0 }}>{it.icon}</span>
                 {it.label}
               </Link>
             );
@@ -158,15 +178,35 @@ export default function DashboardShell(props: {
         </nav>
 
         {/* Bottom section */}
-        <div className="p-4 border-t border-white/10">
-          <span className="text-xs text-white/40 truncate block mb-2">{props.email ?? "Signed in"}</span>
+        <div style={{ padding: "16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+          <p
+            style={{
+              color: "rgba(255,255,255,0.4)",
+              fontSize: "12px",
+              marginBottom: "8px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {props.email ?? "Signed in"}
+          </p>
           <form action="/api/auth/signout" method="post">
-            <button type="submit" className="text-xs text-white/60 hover:text-white">
+            <button
+              type="submit"
+              style={{
+                color: "rgba(255,255,255,0.6)",
+                fontSize: "12px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
               Sign out
             </button>
           </form>
         </div>
-      </aside>
+      </div>
 
       {/* Mobile topbar */}
       <header className="lg:hidden fixed top-0 w-full h-14 z-40 bg-white border-b border-[#e8e3da] shadow-sm">
@@ -234,7 +274,11 @@ export default function DashboardShell(props: {
       )}
 
       {/* Main content wrapper */}
-      <div className="lg:ml-60 min-h-screen bg-[#f7f4ef] pt-14 lg:pt-0">{props.children}</div>
+      <div style={{ marginLeft: "240px", minHeight: "100vh", backgroundColor: "#f7f4ef" }} className="lg:block">
+        {/* Mobile topbar is fixed; keep padding on small screens */}
+        <div className="lg:hidden" style={{ height: 56 }} />
+        {props.children}
+      </div>
     </>
   );
 }
