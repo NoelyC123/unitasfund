@@ -113,8 +113,9 @@ export default function OpportunityRow(props: {
 
   return (
     <div
-      onClick={handleCardClick}
-      className="bg-white rounded-xl border border-[#e8e3da] shadow-sm hover:shadow-md transition-all duration-200 p-5 cursor-pointer group"
+      onClick={() => router.push(`/opportunity/${props.id}`)}
+      style={{ cursor: "pointer" }}
+      className="bg-white rounded-xl border border-[#e8e3da] shadow-sm hover:shadow-md transition-all duration-200 p-5 group"
       role="link"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -125,8 +126,31 @@ export default function OpportunityRow(props: {
         <div className="flex items-start gap-3 min-w-0 flex-1">
           <span className="text-xs text-[#9ca3af] w-5 pt-1 flex-shrink-0 font-mono">{props.rank}</span>
 
-          <div className="w-10 h-10 rounded-full bg-[#c9923a] flex items-center justify-center flex-shrink-0 shadow-sm">
-            <span className="text-white font-bold text-sm">{funderInitial}</span>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              minWidth: "40px",
+              minHeight: "40px",
+              borderRadius: "50%",
+              backgroundColor: "#c9923a",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              overflow: "hidden",
+            }}
+          >
+            <span
+              style={{
+                color: "white",
+                fontWeight: "bold",
+                fontSize: "14px",
+                lineHeight: 1,
+              }}
+            >
+              {funderInitial}
+            </span>
           </div>
 
           <div className="min-w-0 flex-1">
@@ -173,11 +197,20 @@ export default function OpportunityRow(props: {
 
       <div className="border-t border-[#f0ece4] mt-4 pt-3">
         <div className="flex items-center justify-between">
-          <button onClick={handleWhyScore} className="text-xs text-[#c9923a] hover:underline font-medium">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowWhyScore((v) => !v);
+            }}
+            className="text-xs text-[#c9923a] hover:underline font-medium"
+          >
             Why this score? ▾
           </button>
           <button
-            onClick={handleAddToPipeline}
+            onClick={(e) => {
+              e.stopPropagation();
+              void addToPipeline();
+            }}
             disabled={adding || added || pipelineLocked}
             className="text-xs px-3 py-1.5 rounded-lg border border-[#1a1f2e] text-[#1a1f2e] font-medium hover:bg-[#1a1f2e] hover:text-white transition-colors duration-150 disabled:opacity-60"
           >
