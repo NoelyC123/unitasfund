@@ -115,18 +115,25 @@ export default async function PipelinePage() {
           className="rounded-xl p-8 text-center"
           style={{ backgroundColor: "#fff", border: "1px solid #ece6dd" }}
         >
-          <p className="mb-2" style={{ color: NAVY }}>
-            No opportunities in your pipeline yet.
+          <p
+            className="text-xs font-semibold tracking-widest uppercase mb-2"
+            style={{ color: GOLD }}
+          >
+            Pipeline
           </p>
-          <p className="text-sm mb-4" style={{ color: "#4a5568" }}>
-            Add opportunities from the dashboard to track them here.
+          <h2 className="text-xl font-bold mb-2" style={{ color: NAVY }}>
+            No applications tracked yet
+          </h2>
+          <p className="text-sm mb-5" style={{ color: "#4a5568" }}>
+            Find grants on your dashboard and add them to your pipeline to track
+            progress from interested to submitted and won.
           </p>
           <a
             href="/dashboard"
-            className="inline-block px-4 py-2 rounded-lg font-semibold"
+            className="inline-block px-5 py-2.5 rounded-lg font-semibold transition-opacity hover:opacity-90"
             style={{ backgroundColor: GOLD, color: NAVY }}
           >
-            Go to dashboard
+            Go to dashboard →
           </a>
         </div>
       ) : (
