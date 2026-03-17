@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
 const CREAM = "#f7f4ef";
+const BORDER = "#e8e3da";
+const BODY = "#374151";
+const MUTED = "#6b7280";
 const COMPONENT_MAX = 25;
 
 type FitBreakdown = {
@@ -54,10 +57,10 @@ function deadlineBadge(deadline: string | null): { label: string; bg: string; te
   return { label: formatDeadline(deadline), bg: "#dcfce7", text: "#166534" };
 }
 
-function fitColour(score: number): string {
-  if (score >= 75) return "#22c55e";
-  if (score >= 50) return "#f59e0b";
-  return "#ef4444";
+function fitBadge(score: number): { label: string; bg: string; text: string } {
+  if (score >= 75) return { label: "HIGH", bg: "#dcfce7", text: "#166534" };
+  if (score >= 50) return { label: "MEDIUM", bg: "#fef3c7", text: "#92400e" };
+  return { label: "LOW", bg: "#e5e7eb", text: "#374151" };
 }
 
 /** Bar colour for a single component (0–25). */
@@ -119,6 +122,7 @@ export default function OpportunityRow({
   const reasons = row.match_reasons ?? [];
 
   const priority = fitPriorityLabel(row.fit_score);
+  const fitPill = fitBadge(row.fit_score);
   const deadlineUi = deadlineBadge(row.deadline);
   const lastChecked = lastCheckedLabel(row.last_checked_at);
 
@@ -138,11 +142,8 @@ export default function OpportunityRow({
 
   return (
     <div
-      className="rounded-xl border overflow-hidden cursor-pointer"
-      style={{
-        backgroundColor: "#fff",
-        borderColor: "#ece6dd",
-      }}
+      className="rounded-xl border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      style={{ backgroundColor: "#ffffff", borderColor: BORDER }}
       role="link"
       tabIndex={0}
       onClick={() => router.push(`/opportunity/${row.id}`)}
@@ -151,81 +152,54 @@ export default function OpportunityRow({
       }}
     >
       <div
-        className="flex flex-wrap items-center gap-4 px-5 py-4"
+        className="flex flex-wrap items-center gap-4 p-5"
         style={{ color: NAVY }}
       >
-        <span
-          className="font-semibold tabular-nums shrink-0"
-          style={{ color: GOLD, width: "2.5rem" }}
-        >
+        <span className="text-xs font-semibold tabular-nums shrink-0" style={{ color: MUTED, width: "2.75rem" }}>
           #{row.rank}
         </span>
         <div
-          className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold"
-          style={{ backgroundColor: GOLD, color: NAVY }}
+          className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold"
+          style={{ backgroundColor: GOLD, color: "#ffffff" }}
           aria-hidden="true"
         >
           {(row.funder_name?.trim()?.[0] ?? "U").toUpperCase()}
         </div>
         <div className="min-w-0 flex-1 min-w-[200px]">
-          <div className="font-medium block truncate" style={{ color: NAVY }}>
+          <div className="font-semibold block truncate text-base" style={{ color: NAVY }}>
             {row.title}
           </div>
           {row.funder_name && (
-            <p className="text-sm truncate mt-0.5" style={{ color: "#4a5568" }}>
+            <p className="text-sm truncate mt-0.5" style={{ color: MUTED }}>
               {row.funder_name}
             </p>
           )}
           {lastChecked && (
-            <p className="text-xs mt-1" style={{ color: lastChecked.color }}>
+            <p className="text-[11px] mt-1" style={{ color: lastChecked.color }}>
               {lastChecked.text}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-5 shrink-0 flex-wrap">
-          <div className="w-28">
-            <div
-              className="h-2.5 rounded-full overflow-hidden mb-1"
-              style={{ backgroundColor: "#e5e7eb" }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{
-                  width: `${Math.min(100, row.fit_score)}%`,
-                  backgroundColor: fitColour(row.fit_score),
-                }}
-              />
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold tabular-nums" style={{ color: NAVY }}>
-                {Math.round(row.fit_score)}% fit
-              </span>
-              <span
-                className="text-xs font-semibold px-1.5 py-0.5 rounded"
-                style={{ backgroundColor: priority.bg, color: priority.text }}
-              >
-                {priority.label}
-              </span>
-            </div>
-          </div>
-          <span className="w-28 text-right" style={{ color: NAVY, fontSize: "0.9rem" }}>
-            <span style={{ color: "#6b7280" }}>Est. value: </span>
-            <span className="font-semibold tabular-nums" style={{ color: GOLD }}>
-              {formatEv(row.ev)}
-            </span>
+        <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
+          <span
+            className="text-xs font-semibold px-3 py-1.5 rounded-full tabular-nums"
+            style={{ backgroundColor: fitPill.bg, color: fitPill.text }}
+          >
+            {Math.round(row.fit_score)}% {fitPill.label}
           </span>
-          <span className="w-28 text-right">
-            <span
-              className="text-xs font-semibold px-2 py-1 rounded inline-block"
-              style={{ backgroundColor: deadlineUi.bg, color: deadlineUi.text }}
-            >
-              {deadlineUi.label}
-            </span>
+          <span
+            className="text-xs font-semibold px-3 py-1.5 rounded-full tabular-nums"
+            style={{ backgroundColor: deadlineUi.bg, color: deadlineUi.text }}
+          >
+            {deadlineUi.label}
+          </span>
+          <span className="text-xs font-semibold tabular-nums" style={{ color: GOLD }}>
+            {formatEv(row.ev)}
           </span>
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-sm font-medium hover:underline"
+            className="flex items-center gap-1 text-xs font-semibold hover:underline"
             style={{ color: GOLD }}
             aria-expanded={expanded}
             onClickCapture={(e) => e.stopPropagation()}
@@ -242,10 +216,11 @@ export default function OpportunityRow({
             type="button"
             onClick={addToPipeline}
             disabled={adding || added}
-            className="px-4 py-2 rounded-lg text-sm font-semibold transition-opacity disabled:opacity-60"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-60 border"
             style={{
-              backgroundColor: added ? "#22c55e" : GOLD,
-              color: added ? CREAM : NAVY,
+              backgroundColor: "#ffffff",
+              color: NAVY,
+              borderColor: NAVY,
             }}
             onClickCapture={(e) => e.stopPropagation()}
           >
@@ -255,8 +230,8 @@ export default function OpportunityRow({
       </div>
       {expanded && (
         <div
-          className="px-5 py-4 border-t space-y-4 text-sm"
-          style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5" }}
+          className="px-5 pb-5 border-t space-y-4 text-sm"
+          style={{ borderColor: BORDER, backgroundColor: "#ffffff" }}
         >
           {COMPONENT_LABELS.map((label, i) => {
             const score = scores[i] ?? 0;
@@ -266,12 +241,16 @@ export default function OpportunityRow({
             return (
               <div key={label} className="space-y-1">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span style={{ color: "#6b7280", fontWeight: 600 }}>{label}</span>
-                  <span className="tabular-nums" style={{ color: NAVY, fontWeight: 600 }}>
+                  <span className="text-xs font-semibold" style={{ color: MUTED }}>
+                    {label}
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums" style={{ color: NAVY }}>
                     {Math.round(score)}/{COMPONENT_MAX}
                   </span>
                 </div>
-                <p style={{ color: NAVY, margin: 0 }}>{reason}</p>
+                <p className="text-sm" style={{ color: BODY, margin: 0 }}>
+                  {reason}
+                </p>
                 <div
                   className="h-2 rounded-full overflow-hidden max-w-xs"
                   style={{ backgroundColor: "#e5e7eb" }}

@@ -5,6 +5,10 @@ import { createClient } from "@/lib/db/browser";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
+const CREAM = "#f7f4ef";
+const BORDER = "#e8e3da";
+const BODY = "#374151";
+const MUTED = "#6b7280";
 
 type AlertFrequency = "daily" | "weekly";
 type MinScore = 40 | 60 | 70 | 80;
@@ -77,17 +81,17 @@ export default function SettingsClient(props: {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-2xl">
       <header>
-        <h1 className="text-2xl font-bold mb-1" style={{ color: NAVY }}>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: NAVY }}>
           Settings
         </h1>
-        <p className="text-sm" style={{ color: "#4a5568" }}>
+        <p className="text-sm" style={{ color: MUTED }}>
           Manage your email alerts and account settings.
         </p>
       </header>
 
-      <section className="rounded-2xl border p-6" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
+      <section className="rounded-xl border p-6" style={{ borderColor: BORDER, backgroundColor: "#fff" }}>
         <h2 className="text-lg font-bold mb-4" style={{ color: NAVY }}>
           Alert preferences
         </h2>
@@ -97,21 +101,27 @@ export default function SettingsClient(props: {
             <p className="text-sm font-semibold" style={{ color: NAVY }}>
               Email me when new matches are found
             </p>
-            <p className="text-sm" style={{ color: "#4a5568" }}>
+            <p className="text-sm" style={{ color: MUTED }}>
               We'll email you when new opportunities meet your minimum score.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setAlertsEnabled((v) => !v)}
-            className="text-sm font-semibold px-3 py-2 rounded-lg border hover:opacity-90"
-            style={{
-              borderColor: alertsEnabled ? "#fde68a" : "#ece6dd",
-              backgroundColor: alertsEnabled ? "#fff7ed" : "#faf8f5",
-              color: NAVY,
-            }}
-          >
-            {alertsEnabled ? "Enabled" : "Disabled"}
+          <button type="button" onClick={() => setAlertsEnabled((v) => !v)} className="shrink-0">
+            <span className="sr-only">Toggle alerts</span>
+            <span
+              className="relative inline-flex h-7 w-12 items-center rounded-full border transition-colors"
+              style={{
+                backgroundColor: alertsEnabled ? GOLD : "#e5e7eb",
+                borderColor: alertsEnabled ? GOLD : BORDER,
+              }}
+            >
+              <span
+                className="inline-block h-5 w-5 transform rounded-full transition-transform"
+                style={{
+                  backgroundColor: "#ffffff",
+                  transform: alertsEnabled ? "translateX(24px)" : "translateX(6px)",
+                }}
+              />
+            </span>
           </button>
         </div>
 
@@ -123,8 +133,8 @@ export default function SettingsClient(props: {
             <select
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as AlertFrequency)}
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-              style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
+              className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+              style={{ borderColor: BORDER, backgroundColor: "#fff", color: BODY }}
             >
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
@@ -138,8 +148,8 @@ export default function SettingsClient(props: {
             <select
               value={minScore}
               onChange={(e) => setMinScore(Number(e.target.value) as MinScore)}
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-              style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
+              className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+              style={{ borderColor: BORDER, backgroundColor: "#fff", color: BODY }}
             >
               <option value={40}>40%</option>
               <option value={60}>60%</option>
@@ -154,7 +164,7 @@ export default function SettingsClient(props: {
             type="button"
             disabled={!dirty || saving}
             onClick={save}
-            className="text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-95 disabled:opacity-50"
+            className="text-sm font-semibold px-6 py-2.5 rounded-lg hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: GOLD, color: NAVY }}
           >
             {saving ? "Saving…" : "Save"}
@@ -165,7 +175,7 @@ export default function SettingsClient(props: {
         </div>
       </section>
 
-      <section className="rounded-2xl border p-6" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
+      <section className="rounded-xl border p-6" style={{ borderColor: BORDER, backgroundColor: "#fff" }}>
         <h2 className="text-lg font-bold mb-4" style={{ color: NAVY }}>
           Account
         </h2>
@@ -175,7 +185,7 @@ export default function SettingsClient(props: {
             <p className="text-sm font-semibold" style={{ color: NAVY }}>
               Email
             </p>
-            <p className="text-sm" style={{ color: "#4a5568" }}>
+            <p className="text-sm" style={{ color: MUTED }}>
               {props.email}
             </p>
           </div>
@@ -184,8 +194,8 @@ export default function SettingsClient(props: {
             type="button"
             onClick={sendPasswordReset}
             disabled={sendingReset}
-            className="text-sm font-semibold px-3 py-2 rounded-lg border hover:opacity-90 disabled:opacity-50"
-            style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5", color: NAVY }}
+            className="text-sm font-semibold px-4 py-2.5 rounded-lg border hover:opacity-90 disabled:opacity-50"
+            style={{ borderColor: BORDER, backgroundColor: CREAM, color: NAVY }}
           >
             {sendingReset ? "Sending…" : "Change password"}
           </button>

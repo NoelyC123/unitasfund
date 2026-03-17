@@ -5,6 +5,10 @@ import OpportunityRow from "./OpportunityRow";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
+const CREAM = "#f7f4ef";
+const BORDER = "#e8e3da";
+const BODY = "#374151";
+const MUTED = "#6b7280";
 
 type FitBreakdown = {
   location_score?: number;
@@ -100,11 +104,11 @@ export default function DashboardClient({
 
   return (
     <div className="pb-12">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold mb-1" style={{ color: NAVY }}>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold mb-2" style={{ color: NAVY }}>
           {orgName}
         </h1>
-        <p className="text-sm" style={{ color: "#4a5568" }}>
+        <p className="text-sm" style={{ color: MUTED }}>
           {totalMatched === 0
             ? "No grant opportunities matched yet."
             : `${totalMatched} ${totalMatched === 1 ? "opportunity" : "opportunities"} matched — ${highCount} HIGH fit. Top fit score: ${Math.round(topScore)}%.`}
@@ -113,129 +117,160 @@ export default function DashboardClient({
 
       {profileIncomplete && !hideProfileBanner && (
         <div
-          className="mb-4 rounded-xl border px-4 py-3 flex items-start justify-between gap-3 flex-wrap"
-          style={{ backgroundColor: "#fff7ed", borderColor: "#fde68a" }}
+          className="mb-6 rounded-xl border px-4 py-3 flex items-start justify-between gap-3 flex-wrap"
+          style={{ backgroundColor: GOLD, borderColor: GOLD }}
         >
-          <div>
-            <p className="text-sm font-semibold" style={{ color: NAVY }}>
-              Your profile is incomplete — complete it to get better matches
-            </p>
-            <a href="/profile" className="text-sm hover:underline" style={{ color: GOLD }}>
-              Complete your profile →
-            </a>
+          <div className="flex items-start gap-3">
+            <span
+              className="shrink-0 mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-lg"
+              style={{ backgroundColor: "rgba(255,255,255,0.25)", color: NAVY }}
+              aria-hidden="true"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: NAVY }}>
+                Your profile is incomplete — complete it to get better matches
+              </p>
+              <a href="/profile" className="text-sm hover:underline font-semibold" style={{ color: NAVY }}>
+                Complete your profile →
+              </a>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => setHideProfileBanner(true)}
-            className="text-xs font-semibold px-2 py-1 rounded border hover:opacity-90"
-            style={{ borderColor: "#fde68a", backgroundColor: "#fff", color: NAVY }}
+            className="text-xs font-semibold px-2 py-1 rounded-lg border hover:opacity-90"
+            style={{ borderColor: "rgba(26,31,46,0.25)", backgroundColor: "rgba(255,255,255,0.15)", color: NAVY }}
           >
             Dismiss
           </button>
         </div>
       )}
 
-      <div className="mb-4 flex items-center gap-3 flex-wrap">
-        <div className="flex-1 min-w-[240px]">
-          <div className="relative">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search grants and funders..."
-              className="w-full rounded-lg border px-3 py-2 text-sm pr-24"
-              style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
-            />
-            {query.trim().length > 0 && (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold px-2 py-1 rounded border hover:opacity-90"
-                style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5", color: NAVY }}
+      {/* Filters bar */}
+      <div
+        className="rounded-xl border shadow-sm p-4 sm:p-5 mb-6"
+        style={{ backgroundColor: "#ffffff", borderColor: BORDER }}
+      >
+        <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+          <div className="flex-1">
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: MUTED }}>
+              Search
+            </label>
+            <div className="relative">
+              <span
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: MUTED }}
+                aria-hidden="true"
               >
-                Clear
-              </button>
-            )}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search grants and funders..."
+                className="w-full rounded-lg border px-9 pr-24 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                style={{ borderColor: BORDER, backgroundColor: "#ffffff", color: BODY }}
+              />
+              {query.trim().length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold px-2.5 py-1.5 rounded-md border hover:opacity-90"
+                  style={{ borderColor: BORDER, backgroundColor: CREAM, color: NAVY }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full lg:w-auto">
+            <label className="space-y-2">
+              <span className="block text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>
+                Score band
+              </span>
+              <select
+                value={band}
+                onChange={(e) => setBand(e.target.value as ScoreBand)}
+                className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                style={{ borderColor: BORDER, backgroundColor: "#ffffff", color: BODY }}
+              >
+                <option value="ALL">All</option>
+                <option value="HIGH">HIGH (75%+)</option>
+                <option value="MEDIUM">MEDIUM (50–74%)</option>
+                <option value="LOW">LOW (&lt;50%)</option>
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="block text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>
+                Funder
+              </span>
+              <select
+                value={funder}
+                onChange={(e) => setFunder(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                style={{ borderColor: BORDER, backgroundColor: "#ffffff", color: BODY }}
+              >
+                {funderOptions.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="block text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>
+                Sort
+              </span>
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                style={{ borderColor: BORDER, backgroundColor: "#ffffff", color: BODY }}
+              >
+                <option value="FIT">Fit score</option>
+                <option value="DEADLINE">Deadline</option>
+                <option value="EV">Est. value</option>
+              </select>
+            </label>
           </div>
         </div>
-        <div className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
-          {filteredSorted.length} shown
+
+        <div className="mt-4 flex items-center justify-end">
+          <span className="text-sm" style={{ color: MUTED }}>
+            {filteredSorted.length} shown
+          </span>
         </div>
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <label className="space-y-1">
-          <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
-            Score band
-          </span>
-          <select
-            value={band}
-            onChange={(e) => setBand(e.target.value as ScoreBand)}
-            className="rounded-lg border px-3 py-2 text-sm"
-            style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}
-          >
-            <option value="ALL">All</option>
-            <option value="HIGH">HIGH (75%+)</option>
-            <option value="MEDIUM">MEDIUM (50–74%)</option>
-            <option value="LOW">LOW (&lt;50%)</option>
-          </select>
-        </label>
-
-        <label className="space-y-1">
-          <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
-            Funder
-          </span>
-          <select
-            value={funder}
-            onChange={(e) => setFunder(e.target.value)}
-            className="rounded-lg border px-3 py-2 text-sm max-w-[260px]"
-            style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}
-          >
-            {funderOptions.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1">
-          <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
-            Sort
-          </span>
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="rounded-lg border px-3 py-2 text-sm"
-            style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}
-          >
-            <option value="FIT">Fit score</option>
-            <option value="DEADLINE">Deadline</option>
-            <option value="EV">Est. value</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="mb-6">
-        <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: GOLD }}>
-          Top matches
-        </p>
-        <h2 className="text-xl font-bold mb-1" style={{ color: NAVY }}>
-          Grants (excluding tenders)
-        </h2>
-        <p className="text-sm" style={{ color: "#4a5568" }}>
-          Filter and sort client-side. Add to your pipeline to track applications.
-        </p>
       </div>
 
       {filteredSorted.length === 0 ? (
         <div
           className="rounded-xl p-8 text-center"
-          style={{ backgroundColor: "#fff", border: "1px solid #ece6dd" }}
+          style={{ backgroundColor: "#fff", border: `1px solid ${BORDER}` }}
         >
           <p className="mb-2" style={{ color: NAVY }}>
             No opportunities match your filters.
           </p>
-          <p className="text-sm" style={{ color: "#4a5568" }}>
+          <p className="text-sm" style={{ color: MUTED }}>
             Try widening the score band or selecting a different funder.
           </p>
         </div>

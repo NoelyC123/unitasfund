@@ -5,6 +5,9 @@ import { useMemo, useState } from "react";
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
 const CREAM = "#f7f4ef";
+const BORDER = "#e8e3da";
+const BODY = "#374151";
+const MUTED = "#6b7280";
 const COMPONENT_MAX = 25;
 
 const VALID_STATUSES = ["interested", "applying", "submitted", "won", "lost"] as const;
@@ -21,6 +24,12 @@ function fitPriorityLabel(score: number): { label: string; bg: string; text: str
   if (score >= 75) return { label: "HIGH", bg: "#dcfce7", text: "#166534" };
   if (score >= 50) return { label: "MEDIUM", bg: "#fef3c7", text: "#92400e" };
   return { label: "LOW", bg: "#fee2e2", text: "#991b1b" };
+}
+
+function confidenceUi(level: "HIGH" | "MEDIUM" | "LOW"): { dot: string; label: string; note: string } {
+  if (level === "HIGH") return { dot: "#22c55e", label: "HIGH", note: "Based on verified funder data" };
+  if (level === "MEDIUM") return { dot: "#f59e0b", label: "MEDIUM", note: "Based on partial data" };
+  return { dot: "#9ca3af", label: "LOW", note: "Limited data — check funder website" };
 }
 
 function statusLabel(s: PipelineStatus): string {
@@ -249,22 +258,164 @@ export default function OpportunityDetailClient(props: {
 
   return (
     <div className="pb-12">
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* RIGHT column first on mobile */}
-        <aside className="order-1 md:order-2 md:w-1/3">
-          <div className="md:sticky md:top-6 space-y-4">
-            <div className="rounded-xl border p-5" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
-              <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
-                Fit score
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* LEFT */}
+        <div className="lg:col-span-2">
+          <LinkBack />
+
+          <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
+            <h1 className="text-2xl font-bold" style={{ color: NAVY }}>
+              {props.title}
+            </h1>
+            {props.funder_name && (
+              <p className="mt-1 text-sm" style={{ color: MUTED }}>
+                {props.funder_name}
               </p>
-              <div className="flex items-center gap-2 flex-wrap mt-1">
-                <span className="text-3xl font-bold tabular-nums" style={{ color: NAVY }}>
-                  {Math.round(fitScore)}%
-                </span>
-                <span
-                  className="text-xs font-semibold px-2 py-1 rounded"
-                  style={{ backgroundColor: priority.bg, color: priority.text }}
-                >
+            )}
+          </div>
+
+          <SectionCard title="Description">
+            {props.description?.trim() ? (
+              <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: BODY }}>
+                {props.description}
+              </p>
+            ) : (
+              <div className="rounded-lg border p-4" style={{ borderColor: BORDER, backgroundColor: CREAM }}>
+                <p className="text-sm font-semibold" style={{ color: NAVY }}>
+                  Full details available at the funder&apos;s website.
+                </p>
+                {props.url && (
+                  <a
+                    href={props.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block mt-2 text-sm font-semibold hover:underline"
+                    style={{ color: GOLD }}
+                  >
+                    View on funder&apos;s website →
+                  </a>
+                )}
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Who can apply">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: BODY }}>
+              {props.eligibility_summary?.trim()
+                ? props.eligibility_summary
+                : "Check the funder’s website for eligibility criteria."}
+            </p>
+          </SectionCard>
+
+          <SectionCard title="About funder">
+            <p className="text-sm font-medium" style={{ color: NAVY }}>
+              {props.funder_name ?? "—"}
+            </p>
+            {props.url && (
+              <a
+                href={props.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-sm font-semibold hover:underline"
+                style={{ color: GOLD }}
+              >
+                View on funder&apos;s website →
+              </a>
+            )}
+
+            <div className="mt-4">
+              <ReportIssue opportunityId={props.opportunityId} navy={NAVY} gold={GOLD} />
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Your notes">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+              <p className="text-xs" style={{ color: MUTED }}>
+                {inPipeline ? "Auto-saves when you click away." : "Add to pipeline to save notes."}
+              </p>
+              <p className="text-xs tabular-nums" style={{ color: MUTED }}>
+                {notes.length}/1000
+              </p>
+            </div>
+            {inPipeline ? (
+              <>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(clampNotes(e.target.value))}
+                  onBlur={saveNotes}
+                  rows={6}
+                  className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                  style={{ borderColor: BORDER, backgroundColor: "#ffffff", color: NAVY }}
+                  placeholder="Add notes about eligibility, key dates, what you’ll include in the application…"
+                />
+                {savingNotes && (
+                  <p className="mt-2 text-xs font-semibold" style={{ color: GOLD }}>
+                    Saving…
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm" style={{ color: MUTED }}>
+                Add to pipeline to save notes.
+              </p>
+            )}
+          </SectionCard>
+
+          {props.similar.length > 0 && (
+            <SectionCard title="You might also be interested in">
+              <div className="space-y-3">
+                {props.similar.map((o) => {
+                  const p = fitPriorityLabel(o.fit_score);
+                  const dUi = deadlineBadge(o.deadline);
+                  return (
+                    <a
+                      key={o.opportunity_id}
+                      href={`/opportunity/${o.opportunity_id}`}
+                      className="block rounded-xl border p-4 hover:shadow-sm transition-shadow"
+                      style={{ borderColor: BORDER, backgroundColor: "#ffffff" }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold"
+                          style={{ backgroundColor: GOLD, color: "#ffffff" }}
+                          aria-hidden="true"
+                        >
+                          {(o.funder_name?.trim()?.[0] ?? "U").toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold leading-snug line-clamp-2" style={{ color: NAVY }}>
+                            {o.title}
+                          </p>
+                          <p className="text-sm truncate" style={{ color: MUTED }}>
+                            {o.funder_name ?? "—"}
+                          </p>
+                        </div>
+                        <div className="flex items-end gap-2 flex-col shrink-0">
+                          <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: p.bg, color: p.text }}>
+                            {Math.round(o.fit_score)}% {p.label}
+                          </span>
+                          <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: dUi.bg, color: dUi.text }}>
+                            {dUi.label}
+                          </span>
+                        </div>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          )}
+        </div>
+
+        {/* RIGHT */}
+        <div className="lg:col-span-1">
+          <div className="lg:sticky lg:top-6 space-y-4">
+            <div className="rounded-xl border p-5" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
+              <div className="text-4xl font-bold tabular-nums" style={{ color: NAVY }}>
+                {Math.round(fitScore)}%
+              </div>
+              <div className="mt-2">
+                <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: priority.bg, color: priority.text }}>
                   {priority.label}
                 </span>
               </div>
@@ -278,35 +429,27 @@ export default function OpportunityDetailClient(props: {
                     { label: "Deadline", pct: componentPercents.deadline },
                   ] as const
                 ).map((c) => (
-                  <div key={c.label} className="space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold" style={{ color: NAVY }}>
-                        {c.label}
-                      </span>
-                      <span className="text-sm font-semibold tabular-nums" style={{ color: NAVY }}>
-                        {c.pct}%
-                      </span>
+                  <div key={c.label} className="grid grid-cols-[72px_1fr_46px] items-center gap-3">
+                    <span className="text-xs" style={{ color: MUTED }}>
+                      {c.label}
+                    </span>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#e5e7eb" }}>
+                      <div className="h-full" style={{ width: `${Math.min(100, Math.max(0, c.pct))}%`, backgroundColor: GOLD }} />
                     </div>
-                    <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: NAVY }}>
-                      <div
-                        className="h-full"
-                        style={{
-                          width: `${Math.min(100, Math.max(0, c.pct))}%`,
-                          backgroundColor: GOLD,
-                        }}
-                      />
-                    </div>
+                    <span className="text-xs tabular-nums text-right" style={{ color: MUTED }}>
+                      {c.pct}%
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
 
             {props.match_reasons.length > 0 && (
-              <div className="rounded-xl border p-5" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
-                <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: GOLD }}>
-                  Why we matched you to this grant
+              <div className="rounded-xl border p-5" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
+                <p className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: GOLD }}>
+                  Why we matched you
                 </p>
-                <ul className="text-sm space-y-2" style={{ color: NAVY }}>
+                <ul className="text-sm space-y-2" style={{ color: BODY }}>
                   {props.match_reasons.map((r, idx) => (
                     <li key={idx} className="flex gap-2">
                       <span style={{ color: GOLD }}>•</span>
@@ -317,111 +460,78 @@ export default function OpportunityDetailClient(props: {
               </div>
             )}
 
-            <div className="rounded-xl border p-5" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
-              <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: GOLD }}>
+            <div className="rounded-xl border p-5" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
+              <p className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: GOLD }}>
                 Key facts
               </p>
-              <div className="space-y-3 text-sm" style={{ color: NAVY }}>
-                <div className="flex items-start justify-between gap-3">
-                  <span style={{ color: "#6b7280" }}>Award</span>
-                  <span className="font-semibold text-right">
-                    {amountLabel({
-                      amount_text: props.amount_text,
-                      amount_min: props.amount_min,
-                      amount_max: props.amount_max,
-                    })}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-3">
-                  <span style={{ color: "#6b7280" }}>Deadline</span>
-                  <span
-                    className="text-xs font-semibold px-2 py-1 rounded h-fit"
-                    style={{ backgroundColor: deadlineUi.bg, color: deadlineUi.text }}
-                  >
-                    {deadlineUi.label}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between gap-3">
-                  <span style={{ color: "#6b7280" }}>Funder</span>
-                  <span className="font-semibold text-right">{props.funder_name ?? "—"}</span>
-                </div>
-                <div className="flex items-start justify-between gap-3">
-                  <span style={{ color: "#6b7280" }}>Source</span>
+              <div className="divide-y" style={{ borderColor: BORDER }}>
+                {[
+                  { label: "Award", value: amountLabel({ amount_text: props.amount_text, amount_min: props.amount_min, amount_max: props.amount_max }) },
+                  { label: "Deadline", value: deadlineUi.label, badge: { bg: deadlineUi.bg, text: deadlineUi.text } },
+                  { label: "Funder", value: props.funder_name ?? "—" },
+                ].map((row, idx) => (
+                  <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-start justify-between gap-4">
+                    <div className="text-xs uppercase tracking-wider" style={{ color: "#9ca3af" }}>
+                      {row.label}
+                    </div>
+                    {row.badge ? (
+                      <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: row.badge.bg, color: row.badge.text }}>
+                        {row.value}
+                      </span>
+                    ) : (
+                      <div className="text-sm font-medium text-right" style={{ color: NAVY }}>
+                        {row.value}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div className="py-3 flex items-start justify-between gap-4">
+                  <div className="text-xs uppercase tracking-wider" style={{ color: "#9ca3af" }}>
+                    Source
+                  </div>
                   {props.url ? (
-                    <a
-                      href={props.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold hover:underline text-right"
-                      style={{ color: GOLD }}
-                    >
+                    <a href={props.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold hover:underline" style={{ color: GOLD }}>
                       View original listing →
                     </a>
                   ) : (
-                    <span className="font-semibold">—</span>
+                    <div className="text-sm font-medium" style={{ color: NAVY }}>
+                      —
+                    </div>
                   )}
                 </div>
               </div>
             </div>
 
             {props.ev != null && props.ev > 0 && (
-              <div className="rounded-xl border p-5" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
-                <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: GOLD }}>
+              <div className="rounded-xl border p-5" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
+                <p className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: GOLD }}>
                   Estimated net EV
                 </p>
-                <p className="text-2xl font-bold tabular-nums" style={{ color: NAVY }}>
+                <p className="text-2xl font-bold tabular-nums" style={{ color: GOLD }}>
                   {formatMoneyGBP(props.ev)}
                 </p>
-                <p className="text-xs" style={{ color: "#6b7280" }}>
+                <p className="text-xs mt-2" style={{ color: MUTED }}>
                   win probability × award value − bid cost
-                  {bidHours != null ? ` (assumes approx. ${bidHours} hrs to bid @ £45/hr)` : ""} — see funder site for full
-                  criteria
+                  {bidHours != null ? ` (assumes approx. ${bidHours} hrs to bid @ £45/hr)` : ""} — see funder site for full criteria
                 </p>
 
-                <div className="mt-4">
-                  <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: GOLD }}>
-                    Data confidence
-                  </p>
-                  <div className="space-y-1 text-sm" style={{ color: NAVY }}>
-                    {([
-                      {
-                        level: "HIGH",
-                        dot: "#22c55e",
-                        note: "Based on verified funder data",
-                      },
-                      {
-                        level: "MEDIUM",
-                        dot: "#f59e0b",
-                        note: "Based on partial data",
-                      },
-                      {
-                        level: "LOW",
-                        dot: "#9ca3af",
-                        note: "Limited data — check funder website",
-                      },
-                    ] as const).map((r) => {
-                      const active = confidence === r.level;
-                      return (
-                        <div key={r.level} className="flex items-start gap-2">
-                          <span
-                            className="mt-1 inline-block w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: r.dot, opacity: active ? 1 : 0.25 }}
-                            aria-hidden="true"
-                          />
-                          <div style={{ opacity: active ? 1 : 0.45 }}>
-                            <span className="font-semibold">{r.level}</span>{" "}
-                            <span style={{ color: "#6b7280" }}>{r.note}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: NAVY }}>
+                  {(() => {
+                    const ui = confidenceUi(confidence);
+                    return (
+                      <>
+                        <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ui.dot }} aria-hidden="true" />
+                        <span className="font-semibold">{ui.label}</span>
+                        <span style={{ color: MUTED }}>{ui.note}</span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}
 
-            <div className="rounded-xl border p-5" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
-              <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: GOLD }}>
+            <div className="rounded-xl border p-5" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
+              <p className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: GOLD }}>
                 Pipeline status
               </p>
 
@@ -430,7 +540,7 @@ export default function OpportunityDetailClient(props: {
                   type="button"
                   onClick={addToPipeline}
                   disabled={adding}
-                  className="w-full px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60"
+                  className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60"
                   style={{ backgroundColor: GOLD, color: NAVY }}
                 >
                   {adding ? "Adding…" : "Add to pipeline"}
@@ -438,12 +548,8 @@ export default function OpportunityDetailClient(props: {
               ) : (
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <span
-                    className="text-xs font-semibold px-2 py-1 rounded border"
-                    style={{
-                      backgroundColor: statusChip.bg,
-                      color: statusChip.text,
-                      borderColor: statusChip.border,
-                    }}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-full border"
+                    style={{ backgroundColor: statusChip.bg, color: statusChip.text, borderColor: statusChip.border }}
                   >
                     {statusLabel(currentStatus)}
                   </span>
@@ -451,8 +557,8 @@ export default function OpportunityDetailClient(props: {
                     value={currentStatus}
                     onChange={(e) => updateStatus(e.target.value as PipelineStatus)}
                     disabled={savingStatus}
-                    className="rounded-lg border px-3 py-2 text-sm"
-                    style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5", color: NAVY }}
+                    className="rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                    style={{ borderColor: BORDER, backgroundColor: "#ffffff", color: NAVY }}
                   >
                     <option value="interested">Interested</option>
                     <option value="applying">Applying</option>
@@ -469,204 +575,36 @@ export default function OpportunityDetailClient(props: {
                 href={props.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90"
+                className="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90"
                 style={{ backgroundColor: GOLD, color: NAVY }}
               >
                 View on funder’s website →
               </a>
             )}
           </div>
-        </aside>
-
-        {/* LEFT column */}
-        <div className="order-2 md:order-1 md:w-2/3 space-y-6">
-          <div>
-            <a href="/dashboard" className="text-sm hover:underline" style={{ color: GOLD }}>
-              ← Dashboard
-            </a>
-          </div>
-
-          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: "#fff", borderColor: "#ece6dd" }}>
-            <div className="px-6 py-5 border-b" style={{ backgroundColor: NAVY, borderColor: "#2d3345" }}>
-              <h1 className="text-2xl font-bold" style={{ color: CREAM }}>
-                {props.title}
-              </h1>
-              {props.funder_name && (
-                <p className="mt-1 text-sm" style={{ color: "#a8b4c4" }}>
-                  {props.funder_name}
-                </p>
-              )}
-            </div>
-
-            <div className="px-6 py-6 space-y-6">
-              <div>
-                <h2 className="text-lg font-bold mb-2" style={{ color: NAVY }}>
-                  Description
-                </h2>
-                {props.description?.trim() ? (
-                  <div
-                    className="rounded-lg border p-4 text-sm whitespace-pre-wrap"
-                    style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: "#374151" }}
-                  >
-                    {props.description}
-                  </div>
-                ) : (
-                  <div
-                    className="rounded-lg border p-4 text-sm"
-                    style={{ borderColor: "#fde68a", backgroundColor: "#fff7ed", color: NAVY }}
-                  >
-                    <p className="font-semibold mb-1">Full details available at the funder&apos;s website.</p>
-                    {props.url && (
-                      <a
-                        href={props.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm hover:underline font-semibold"
-                        style={{ color: GOLD }}
-                      >
-                        View on funder&apos;s website →
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h2 className="text-lg font-bold mb-2" style={{ color: NAVY }}>
-                  Who can apply
-                </h2>
-                <div
-                  className="rounded-lg border p-4 text-sm whitespace-pre-wrap"
-                  style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: "#374151" }}
-                >
-                  {props.eligibility_summary?.trim()
-                    ? props.eligibility_summary
-                    : "Check the funder’s website for eligibility criteria."}
-                </div>
-              </div>
-
-              <div className="rounded-xl border p-5" style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5" }}>
-                <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: GOLD }}>
-                  About this funder
-                </p>
-                <p className="text-sm font-semibold" style={{ color: NAVY }}>
-                  {props.funder_name ?? "—"}
-                </p>
-                {props.url && (
-                  <a
-                    href={props.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block mt-2 text-sm hover:underline font-semibold"
-                    style={{ color: GOLD }}
-                  >
-                    View on funder&apos;s website →
-                  </a>
-                )}
-              </div>
-
-              {/* Report an issue */}
-              <ReportIssue
-                opportunityId={props.opportunityId}
-                navy={NAVY}
-                gold={GOLD}
-              />
-
-              <div>
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <h2 className="text-lg font-bold" style={{ color: NAVY }}>
-                    Your notes
-                  </h2>
-                  <p className="text-xs tabular-nums" style={{ color: "#6b7280" }}>
-                    {notes.length}/1000
-                  </p>
-                </div>
-                {inPipeline ? (
-                  <>
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(clampNotes(e.target.value))}
-                      onBlur={saveNotes}
-                      rows={7}
-                      className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
-                      style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
-                      placeholder="Add notes about eligibility, key dates, what you’ll include in the application…"
-                    />
-                    <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
-                      <p className="text-xs" style={{ color: "#6b7280" }}>
-                        Auto-saves when you click away.
-                      </p>
-                      {savingNotes && (
-                        <span className="text-xs font-semibold" style={{ color: GOLD }}>
-                          Saving…
-                        </span>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <p className="mt-2 text-sm" style={{ color: "#6b7280" }}>
-                    Add to pipeline to save notes.
-                  </p>
-                )}
-              </div>
-
-              {props.similar.length > 0 && (
-                <div>
-                  <h2 className="text-lg font-bold mb-3" style={{ color: NAVY }}>
-                    You might also be interested in
-                  </h2>
-                  <div className="space-y-3">
-                    {props.similar.map((o) => {
-                      const p = fitPriorityLabel(o.fit_score);
-                      const dUi = deadlineBadge(o.deadline);
-                      return (
-                        <a
-                          key={o.opportunity_id}
-                          href={`/opportunity/${o.opportunity_id}`}
-                          className="block rounded-xl border px-4 py-3 hover:opacity-95"
-                          style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold"
-                              style={{ backgroundColor: GOLD, color: NAVY }}
-                              aria-hidden="true"
-                            >
-                              {(o.funder_name?.trim()?.[0] ?? "U").toUpperCase()}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold leading-snug line-clamp-2" style={{ color: NAVY }}>
-                                {o.title}
-                              </p>
-                              <p className="text-sm truncate" style={{ color: "#4a5568" }}>
-                                {o.funder_name ?? "—"}
-                              </p>
-                            </div>
-                            <div className="flex items-end gap-2 flex-col shrink-0">
-                              <span
-                                className="text-xs font-semibold px-2 py-1 rounded"
-                                style={{ backgroundColor: p.bg, color: p.text }}
-                              >
-                                {p.label} · {Math.round(o.fit_score)}%
-                              </span>
-                              <span
-                                className="text-xs font-semibold px-2 py-1 rounded"
-                                style={{ backgroundColor: dUi.bg, color: dUi.text }}
-                              >
-                                {dUi.label}
-                              </span>
-                            </div>
-                          </div>
-                        </a>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LinkBack() {
+  return (
+    <div className="mb-4">
+      <a href="/dashboard" className="text-sm font-semibold hover:underline" style={{ color: GOLD }}>
+        ← Dashboard
+      </a>
+    </div>
+  );
+}
+
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
+      <p className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: GOLD }}>
+        {title}
+      </p>
+      {children}
     </div>
   );
 }

@@ -5,6 +5,9 @@ import { useMemo, useState } from "react";
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
 const CREAM = "#f7f4ef";
+const BORDER = "#e8e3da";
+const BODY = "#374151";
+const MUTED = "#6b7280";
 
 const STATUS_OPTIONS = [
   { value: "interested", label: "Interested" },
@@ -64,17 +67,18 @@ export default function PipelineTable({ items }: { items: PipelineItem[] }) {
   }, [items, statusFilter]);
 
   const chips = [
-    { key: "all", label: `Total: ${counts.all}`, bg: "#faf8f5", text: NAVY, border: "#ece6dd" },
-    { key: "interested", label: `Interested: ${counts.interested}`, bg: "#fff7ed", text: "#92400e", border: "#fde68a" },
-    { key: "applying", label: `Applying: ${counts.applying}`, bg: "#e0f2fe", text: "#075985", border: "#bae6fd" },
-    { key: "submitted", label: `Submitted: ${counts.submitted}`, bg: "#e0e7ff", text: "#3730a3", border: "#c7d2fe" },
-    { key: "won", label: `Won: ${counts.won}`, bg: "#dcfce7", text: "#166534", border: "#bbf7d0" },
-    { key: "lost", label: `Lost: ${counts.lost}`, bg: "#fee2e2", text: "#991b1b", border: "#fecaca" },
+    { key: "all", label: `Total`, count: counts.all, bg: "#ffffff", text: NAVY, border: BORDER },
+    { key: "interested", label: `Interested`, count: counts.interested, bg: "#fff7ed", text: "#92400e", border: "#fde68a" },
+    { key: "applying", label: `Applying`, count: counts.applying, bg: "#e0f2fe", text: "#075985", border: "#bae6fd" },
+    { key: "submitted", label: `Submitted`, count: counts.submitted, bg: "#e0e7ff", text: "#3730a3", border: "#c7d2fe" },
+    { key: "won", label: `Won`, count: counts.won, bg: "#dcfce7", text: "#166534", border: "#bbf7d0" },
+    { key: "lost", label: `Lost`, count: counts.lost, bg: "#fee2e2", text: "#991b1b", border: "#fecaca" },
   ];
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="rounded-xl border p-3 shadow-sm" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
+        <div className="flex flex-wrap gap-2">
         {chips.map((c) => {
           const active = statusFilter === c.key;
           return (
@@ -82,37 +86,42 @@ export default function PipelineTable({ items }: { items: PipelineItem[] }) {
               key={c.key}
               type="button"
               onClick={() => setStatusFilter(c.key)}
-              className="text-xs font-semibold px-3 py-2 rounded-lg border transition-opacity hover:opacity-90"
+              className="text-xs font-semibold px-3 py-2 rounded-full border transition-all hover:opacity-90"
               style={{
                 backgroundColor: c.bg,
                 color: c.text,
                 borderColor: active ? GOLD : c.border,
+                boxShadow: active ? "0 1px 0 rgba(0,0,0,0.04)" : "none",
               }}
             >
-              {c.label}
+              <span>{c.label}</span>
+              <span className="ml-2 tabular-nums" style={{ color: c.text, opacity: 0.85 }}>
+                {c.count}
+              </span>
             </button>
           );
         })}
+        </div>
       </div>
 
       <div
-        className="rounded-xl border overflow-hidden"
-        style={{ backgroundColor: "#fff", borderColor: "#ece6dd" }}
+        className="rounded-xl border overflow-hidden shadow-sm"
+        style={{ backgroundColor: "#fff", borderColor: BORDER }}
       >
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
-            <tr style={{ backgroundColor: "#faf8f5", borderBottom: "1px solid #ece6dd" }}>
-              <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>
+            <tr style={{ backgroundColor: CREAM, borderBottom: `1px solid ${BORDER}` }}>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>
                 Opportunity
               </th>
-              <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>
                 Funder
               </th>
-              <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>
                 Deadline
               </th>
-              <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>
                 Status
               </th>
             </tr>
@@ -189,38 +198,66 @@ function PipelineRow({ item }: { item: PipelineItem }) {
 
   return (
     <>
-      <tr className="border-b last:border-b-0" style={{ borderColor: "#ece6dd" }}>
-        <td className="px-5 py-4">
+      <tr className="border-b last:border-b-0 hover:bg-gray-50" style={{ borderColor: BORDER }}>
+        <td className="px-4 py-4">
           <a
             href={`/opportunity/${item.opportunity_id}`}
-            className="font-medium hover:underline"
+            className="font-semibold hover:underline"
             style={{ color: NAVY }}
           >
             {item.title}
           </a>
           {item.amount_text && (
-            <p className="text-sm mt-0.5" style={{ color: "#6b7280" }}>
+            <p className="text-sm mt-0.5" style={{ color: MUTED }}>
               {item.amount_text}
             </p>
           )}
         </td>
-        <td className="px-5 py-4 text-sm" style={{ color: "#4a5568" }}>
+        <td className="px-4 py-4 text-sm" style={{ color: MUTED }}>
           {item.funder_name ?? "—"}
         </td>
-        <td className="px-5 py-4 text-sm tabular-nums" style={{ color: "#4a5568" }}>
+        <td className="px-4 py-4 text-sm tabular-nums" style={{ color: MUTED }}>
           {formatDeadline(item.deadline)}
         </td>
-        <td className="px-5 py-4">
+        <td className="px-4 py-4">
           <div className="flex items-center gap-3 flex-wrap">
+            <span
+              className="text-xs font-semibold px-3 py-1.5 rounded-full border"
+              style={{
+                backgroundColor:
+                  status === "won"
+                    ? "#dcfce7"
+                    : status === "lost"
+                    ? "#fee2e2"
+                    : status === "submitted"
+                    ? "#e0e7ff"
+                    : status === "applying"
+                    ? "#e0f2fe"
+                    : "#fff7ed",
+                color:
+                  status === "won"
+                    ? "#166534"
+                    : status === "lost"
+                    ? "#991b1b"
+                    : status === "submitted"
+                    ? "#3730a3"
+                    : status === "applying"
+                    ? "#075985"
+                    : "#92400e",
+                borderColor: BORDER,
+              }}
+            >
+              {STATUS_OPTIONS.find((s) => s.value === status)?.label ?? status}
+            </span>
             <select
               value={status}
               onChange={(e) => handleStatusChange(e.target.value)}
               disabled={updating}
-              className="px-3 py-2 rounded-lg border text-sm font-medium disabled:opacity-60"
+              className="px-3 py-2 rounded-lg border text-sm font-medium disabled:opacity-60 outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
               style={{
-                borderColor: "#ece6dd",
+                borderColor: BORDER,
                 color: NAVY,
-                backgroundColor: CREAM,
+                backgroundColor: "#ffffff",
               }}
             >
               {STATUS_OPTIONS.map((opt) => (
@@ -245,54 +282,54 @@ function PipelineRow({ item }: { item: PipelineItem }) {
       </tr>
 
       {showOutcome && openOutcome && (
-        <tr className="border-b last:border-b-0" style={{ borderColor: "#ece6dd" }}>
-          <td colSpan={4} className="px-5 py-4" style={{ backgroundColor: "#faf8f5" }}>
-            <div className="rounded-xl border p-4" style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}>
+        <tr className="border-b last:border-b-0" style={{ borderColor: BORDER }}>
+          <td colSpan={4} className="px-4 py-4" style={{ backgroundColor: CREAM }}>
+            <div className="rounded-xl border p-4" style={{ borderColor: BORDER, backgroundColor: "#fff" }}>
               <p className="text-sm font-semibold mb-1" style={{ color: NAVY }}>
                 Help us improve your future matches
               </p>
-              <p className="text-sm mb-4" style={{ color: "#6b7280" }}>
+              <p className="text-sm mb-4" style={{ color: MUTED }}>
                 All fields are optional.
               </p>
 
               {status === "won" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
+                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: MUTED }}>
                       Actual award amount received (£)
                     </span>
                     <input
                       value={actualAwardAmount}
                       onChange={(e) => setActualAwardAmount(e.target.value)}
                       inputMode="decimal"
-                      className="w-full rounded-lg border px-3 py-2 text-sm"
-                      style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
+                      className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                      style={{ borderColor: BORDER, backgroundColor: "#fff", color: NAVY }}
                       placeholder="e.g. 5000"
                     />
                   </label>
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
+                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: MUTED }}>
                       Estimated hours spent on bid
                     </span>
                     <input
                       value={bidHours}
                       onChange={(e) => setBidHours(e.target.value)}
                       inputMode="numeric"
-                      className="w-full rounded-lg border px-3 py-2 text-sm"
-                      style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
+                      className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                      style={{ borderColor: BORDER, backgroundColor: "#fff", color: NAVY }}
                       placeholder="e.g. 20"
                     />
                   </label>
                   <label className="space-y-1 sm:col-span-2">
-                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
+                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: MUTED }}>
                       Any notes?
                     </span>
                     <textarea
                       value={outcomeNotes}
                       onChange={(e) => setOutcomeNotes(e.target.value)}
                       rows={3}
-                      className="w-full rounded-lg border px-3 py-2 text-sm"
-                      style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
+                      className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                      style={{ borderColor: BORDER, backgroundColor: "#fff", color: NAVY }}
                       placeholder="What went well? What would you do differently?"
                     />
                   </label>
@@ -300,14 +337,14 @@ function PipelineRow({ item }: { item: PipelineItem }) {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
+                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: MUTED }}>
                       Primary reason for loss
                     </span>
                     <select
                       value={lossReason}
                       onChange={(e) => setLossReason(e.target.value)}
-                      className="w-full rounded-lg border px-3 py-2 text-sm"
-                      style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
+                      className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                      style={{ borderColor: BORDER, backgroundColor: "#fff", color: NAVY }}
                     >
                       <option value="eligibility">Eligibility — we didn&apos;t meet the criteria</option>
                       <option value="competition">Competition — stronger applications</option>
@@ -317,28 +354,28 @@ function PipelineRow({ item }: { item: PipelineItem }) {
                     </select>
                   </label>
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
+                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: MUTED }}>
                       Estimated hours spent on bid
                     </span>
                     <input
                       value={bidHours}
                       onChange={(e) => setBidHours(e.target.value)}
                       inputMode="numeric"
-                      className="w-full rounded-lg border px-3 py-2 text-sm"
-                      style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
+                      className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                      style={{ borderColor: BORDER, backgroundColor: "#fff", color: NAVY }}
                       placeholder="e.g. 10"
                     />
                   </label>
                   <label className="space-y-1 sm:col-span-2">
-                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
+                    <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: MUTED }}>
                       Any notes?
                     </span>
                     <textarea
                       value={outcomeNotes}
                       onChange={(e) => setOutcomeNotes(e.target.value)}
                       rows={3}
-                      className="w-full rounded-lg border px-3 py-2 text-sm"
-                      style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
+                      className="w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#c9923a] focus:border-transparent"
+                      style={{ borderColor: BORDER, backgroundColor: "#fff", color: NAVY }}
                       placeholder="Anything worth capturing for next time?"
                     />
                   </label>

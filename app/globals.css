@@ -4,5 +4,9 @@
 
 body {
   background-color: #f7f4ef;
-  color: #1a1f2e;
+  color: #374151;
+}
+
+html {
+  color-scheme: light;
 }
