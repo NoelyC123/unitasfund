@@ -69,6 +69,24 @@ export default async function DashboardLayout({
         </div>
       </header>
       <main className="max-w-4xl mx-auto px-6 py-8">{children}</main>
+      <footer
+        className="mt-10 px-6 py-6 border-t"
+        style={{ borderColor: "#ece6dd", backgroundColor: "#f7f4ef" }}
+      >
+        <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-4">
+          <span className="text-sm" style={{ color: "#6b7280" }}>
+            UnitasFund
+          </span>
+          <div className="flex gap-6 flex-wrap">
+            <a href="/privacy" className="text-sm hover:underline" style={{ color: "#6b7280" }}>
+              Privacy Policy
+            </a>
+            <a href="/terms" className="text-sm hover:underline" style={{ color: "#6b7280" }}>
+              Terms of Service
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -246,7 +246,21 @@ export default async function HomePage() {
           <span className="text-sm" style={{ color: "#9ca3af" }}>
             UnitasFund — Funding · Strategy · Growth
           </span>
-          <div className="flex gap-6">
+          <div className="flex gap-6 flex-wrap">
+            <Link
+              href="/privacy"
+              className="text-sm hover:underline"
+              style={{ color: "#9ca3af" }}
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              href="/terms"
+              className="text-sm hover:underline"
+              style={{ color: "#9ca3af" }}
+            >
+              Terms of Service
+            </Link>
             <Link
               href="/login"
               className="text-sm hover:underline"
