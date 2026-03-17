@@ -54,6 +54,7 @@ export default function DashboardClient({
   const [band, setBand] = useState<ScoreBand>("ALL");
   const [funder, setFunder] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("FIT");
+  const [query, setQuery] = useState<string>("");
 
   const totalMatched = rows.length;
   const highCount = useMemo(
@@ -71,6 +72,14 @@ export default function DashboardClient({
 
   const filteredSorted = useMemo(() => {
     let out = rows.slice();
+    const q = query.trim().toLowerCase();
+    if (q) {
+      out = out.filter((r) => {
+        const title = (r.title ?? "").toLowerCase();
+        const funderName = (r.funder_name ?? "").toLowerCase();
+        return title.includes(q) || funderName.includes(q);
+      });
+    }
     if (band !== "ALL") out = out.filter((r) => bandFor(r.fit_score) === band);
     if (funder !== "ALL") out = out.filter((r) => (r.funder_name ?? "") === funder);
 
@@ -81,7 +90,7 @@ export default function DashboardClient({
     });
 
     return out.map((r, i) => ({ ...r, rank: i + 1 }));
-  }, [rows, band, funder, sortKey]);
+  }, [rows, band, funder, sortKey, query]);
 
   const topScore = filteredSorted[0]?.fit_score ?? 0;
 
@@ -97,6 +106,33 @@ export default function DashboardClient({
             : `${totalMatched} ${totalMatched === 1 ? "opportunity" : "opportunities"} matched — ${highCount} HIGH fit. Top fit score: ${Math.round(topScore)}%.`}
         </p>
       </header>
+
+      <div className="mb-4 flex items-center gap-3 flex-wrap">
+        <div className="flex-1 min-w-[240px]">
+          <div className="relative">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search grants and funders..."
+              className="w-full rounded-lg border px-3 py-2 text-sm pr-24"
+              style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: NAVY }}
+            />
+            {query.trim().length > 0 && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold px-2 py-1 rounded border hover:opacity-90"
+                style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5", color: NAVY }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="text-xs font-semibold tracking-widest uppercase" style={{ color: GOLD }}>
+          {filteredSorted.length} shown
+        </div>
+      </div>
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <label className="space-y-1">
