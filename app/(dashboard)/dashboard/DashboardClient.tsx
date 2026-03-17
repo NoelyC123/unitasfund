@@ -47,14 +47,17 @@ function deadlineValue(deadline: string | null): number {
 export default function DashboardClient({
   orgName,
   rows,
+  profileIncomplete = false,
 }: {
   orgName: string;
   rows: Row[];
+  profileIncomplete?: boolean;
 }) {
   const [band, setBand] = useState<ScoreBand>("ALL");
   const [funder, setFunder] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("FIT");
   const [query, setQuery] = useState<string>("");
+  const [hideProfileBanner, setHideProfileBanner] = useState(false);
 
   const totalMatched = rows.length;
   const highCount = useMemo(
@@ -106,6 +109,30 @@ export default function DashboardClient({
             : `${totalMatched} ${totalMatched === 1 ? "opportunity" : "opportunities"} matched — ${highCount} HIGH fit. Top fit score: ${Math.round(topScore)}%.`}
         </p>
       </header>
+
+      {profileIncomplete && !hideProfileBanner && (
+        <div
+          className="mb-4 rounded-xl border px-4 py-3 flex items-start justify-between gap-3 flex-wrap"
+          style={{ backgroundColor: "#fff7ed", borderColor: "#fde68a" }}
+        >
+          <div>
+            <p className="text-sm font-semibold" style={{ color: NAVY }}>
+              Your profile is incomplete — complete it to get better matches
+            </p>
+            <a href="/profile" className="text-sm hover:underline" style={{ color: GOLD }}>
+              Complete your profile →
+            </a>
+          </div>
+          <button
+            type="button"
+            onClick={() => setHideProfileBanner(true)}
+            className="text-xs font-semibold px-2 py-1 rounded border hover:opacity-90"
+            style={{ borderColor: "#fde68a", backgroundColor: "#fff", color: NAVY }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="mb-4 flex items-center gap-3 flex-wrap">
         <div className="flex-1 min-w-[240px]">

@@ -67,6 +67,12 @@ export default async function DashboardPage() {
       }
     : null;
 
+  const profileIncomplete =
+    !orgProfile ||
+    !orgProfile.location_region ||
+    !orgProfile.annual_income_band ||
+    (orgProfile.sectors?.length ?? 0) === 0;
+
   const { data: scoreRows, error } = await supabase
     .from("scores")
     .select(
@@ -179,5 +185,11 @@ export default async function DashboardPage() {
     grantsOnly.length
   );
 
-  return <DashboardClient orgName={orgName} rows={grantsOnly} />;
+  return (
+    <DashboardClient
+      orgName={orgName}
+      rows={grantsOnly}
+      profileIncomplete={profileIncomplete}
+    />
+  );
 }
