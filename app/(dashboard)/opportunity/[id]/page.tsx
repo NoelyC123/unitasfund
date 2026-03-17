@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { buildMatchReasons } from "@/lib/scoring/fit";
 import type { OrgProfile, Opportunity } from "@/lib/scoring/types";
 import AddToPipelineButton from "./AddToPipelineButton";
+import BackButton from "./BackButton";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
@@ -18,6 +19,22 @@ function formatDeadline(d: string | null): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function deadlineBadge(deadline: string | null): { label: string; bg: string; text: string } {
+  if (!deadline || !deadline.trim()) {
+    return { label: "Rolling", bg: "#e0f2fe", text: "#075985" };
+  }
+  const d = new Date(deadline.trim());
+  const t = d.getTime();
+  if (Number.isNaN(t)) {
+    return { label: deadline, bg: "#e5e7eb", text: "#374151" };
+  }
+  const now = Date.now();
+  const diffDays = (t - now) / (1000 * 60 * 60 * 24);
+  if (diffDays < 14) return { label: formatDeadline(deadline), bg: "#fee2e2", text: "#991b1b" };
+  if (diffDays < 28) return { label: formatDeadline(deadline), bg: "#fef3c7", text: "#92400e" };
+  return { label: formatDeadline(deadline), bg: "#dcfce7", text: "#166534" };
 }
 
 function fitColour(score: number): string {
@@ -194,13 +211,12 @@ export default async function OpportunityDetailPage({
   const deadline = (opp?.deadline as string | null) ?? null;
   const description = (opp?.description as string | null) ?? null;
   const eligibilitySummary = (opp?.eligibility_summary as string | null) ?? null;
+  const deadlineUi = deadlineBadge(deadline);
 
   return (
     <div className="pb-12">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <a href="/dashboard" className="text-sm hover:underline" style={{ color: GOLD }}>
-          ← Back to dashboard
-        </a>
+        <BackButton />
         <AddToPipelineButton
           opportunityId={id}
           initiallyAdded={Boolean(existingPipeline?.id)}
@@ -252,9 +268,14 @@ export default async function OpportunityDetailPage({
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: GOLD }}>
                   Deadline
                 </p>
-                <p className="mt-1 font-semibold" style={{ color: NAVY }}>
-                  {formatDeadline(deadline)}
-                </p>
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <span
+                    className="text-xs font-semibold px-2 py-1 rounded"
+                    style={{ backgroundColor: deadlineUi.bg, color: deadlineUi.text }}
+                  >
+                    {deadlineUi.label}
+                  </span>
+                </div>
               </div>
               <div
                 className="rounded-lg border p-4"
@@ -303,7 +324,9 @@ export default async function OpportunityDetailPage({
                 className="rounded-lg border p-4 text-sm whitespace-pre-wrap"
                 style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: "#374151" }}
               >
-                {description?.trim() ? description : "No description available."}
+                {description?.trim()
+                  ? description
+                  : "No description available from this source. Click Apply Now to view full details on the funder’s website."}
               </div>
             </div>
 
@@ -317,7 +340,7 @@ export default async function OpportunityDetailPage({
               >
                 {eligibilitySummary?.trim()
                   ? eligibilitySummary
-                  : "No eligibility summary available."}
+                  : "Visit the funder’s website for full eligibility criteria."}
               </div>
             </div>
           </div>
