@@ -38,6 +38,22 @@ UnitasFund is a **UK funding intelligence platform** (Funding Intelligence OS), 
 - **Scoring:** Implemented as pure functions; no database calls inside `lib/scoring/`. Breakdown is explainable (e.g. `fit_breakdown: { location: 1, sector: 0.8, income: 1, deadline: 0.9 }`).
 - **API:** REST under `app/api/`; auth via Supabase session. Ingest endpoints (e.g. `/api/ingest/opportunities`) are for internal/cron use.
 
+## Data Quality — Critical Rules
+
+### Funder and opportunity data
+- Never invent, assume or guess funder names, amounts, deadlines or eligibility criteria
+- All opportunity data must come directly from the source URL — if a field cannot be scraped accurately, leave it NULL rather than guessing
+- Funder names must match exactly what appears on the funder's own website — no abbreviations or paraphrasing unless that is how the funder refers to themselves
+- Deadlines must only be stored if they can be parsed to a valid date — never store "Rolling" as a date field, use NULL
+- Amounts must only be stored if explicitly stated on the source page — never estimate or infer amounts
+- If a scraper returns navigation pages, error pages or non-grant content it must be filtered at source, not at ingest
+- All scraper sources must be verified against the live funder website at least monthly
+
+### For outreach emails
+- Never guess or infer organisation names, email addresses or contact names
+- Only use details confirmed directly from the organisation's own website contact page
+- If in doubt, leave blank and ask the user to confirm
+
 ## Reference
 
 - Full architecture (schema, API list, scoring logic, MVP phases): see `docs/` or the UnitasConnect repo doc **UNITASFUND_ARCHITECTURE_PLAN.md**.
