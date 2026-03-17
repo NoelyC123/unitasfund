@@ -82,6 +82,13 @@ const NAVIGATION_TERMS = new Set([
   "sign up",
   "360giving",
   "360 giving",
+  "supply and delivery",
+  "commissioning placements",
+  "advisory services",
+  "web application",
+  "installation",
+  "loaders",
+  "placements",
 ]);
 
 const MIN_TITLE_LENGTH = 10;
@@ -139,6 +146,26 @@ function isNavigationNoise(title: string): boolean {
     }
   }
   return false;
+}
+
+const PROCUREMENT_TERMS = [
+  "supply and delivery",
+  "supply & delivery",
+  "commissioning placements",
+  "advisory services",
+  "web application development",
+  "installation services",
+  "framework agreement",
+  "invitation to tender",
+  "itt ",
+  "procurement",
+  "contract notice",
+  "pin notice",
+];
+
+function isProcurementTender(title: string): boolean {
+  const lower = (title ?? "").toLowerCase();
+  return PROCUREMENT_TERMS.some((term) => lower.includes(term));
 }
 
 function findLatestCsv(dir: string): string | null {
@@ -311,9 +338,10 @@ async function main() {
     if (trimmed.includes("[") && trimmed.includes("]")) return false;
     // Drop tender/procurement items (even if mislabelled by source_id).
     if (isTenderLikeTitle(trimmed)) return false;
+    if (isProcurementTender(trimmed)) return false;
     // Drop contract-like reference codes (e.g. CM3072 ...) that look like procurement.
     if (looksLikeContractReference(trimmed)) return false;
-    return !isNavigationNoise(title);
+    return !(isNavigationNoise(title) || isProcurementTender(title));
   });
   const skipped = rows.length - filtered.length;
   if (skipped > 0) {
@@ -438,7 +466,7 @@ async function main() {
     const lower = trimmed.toLowerCase();
     if (lower.includes("[scrape error]")) return false;
     if (trimmed.includes("[") && trimmed.includes("]")) return false;
-    if (isNavigationNoise(title)) return false;
+    if (isNavigationNoise(title) || isProcurementTender(title)) return false;
     if (isTenderLikeTitle(trimmed)) return false;
     if (looksLikeContractReference(trimmed)) return false;
     return true;
