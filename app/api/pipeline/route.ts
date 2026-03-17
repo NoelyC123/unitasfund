@@ -36,14 +36,18 @@ export async function POST(request: NextRequest) {
     }
 
     const service = getSupabaseService();
-    const { error } = await service.from("pipeline").upsert(
-      {
-        organisation_id: link.organisation_id,
-        opportunity_id,
-        status: "interested",
-      },
-      { onConflict: "organisation_id,opportunity_id" }
-    );
+    const { data, error } = await service
+      .from("pipeline")
+      .upsert(
+        {
+          organisation_id: link.organisation_id,
+          opportunity_id,
+          status: "interested",
+        },
+        { onConflict: "organisation_id,opportunity_id" }
+      )
+      .select("id, status, notes")
+      .single();
 
     if (error) {
       return NextResponse.json(
@@ -51,7 +55,10 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+      pipeline: { id: data?.id, status: data?.status, notes: data?.notes ?? "" },
+    });
   } catch {
     return NextResponse.json(
       { error: "Something went wrong." },

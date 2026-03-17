@@ -3,13 +3,19 @@ import { getSupabaseService } from "@/lib/db/client";
 import { redirect } from "next/navigation";
 import { buildMatchReasons } from "@/lib/scoring/fit";
 import type { OrgProfile, Opportunity } from "@/lib/scoring/types";
-import AddToPipelineButton from "./AddToPipelineButton";
-import BackButton from "./BackButton";
+import OpportunityDetailClient from "./OpportunityDetailClient";
 
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
-const CREAM = "#f7f4ef";
 const COMPONENT_MAX = 25;
+
+function clampDescription(s: string | null, max: number): string | null {
+  if (!s) return null;
+  const t = s.trim().replace(/\s+/g, " ");
+  if (!t) return null;
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1).trim()}…`;
+}
 
 function formatDeadline(d: string | null): string {
   if (!d || !d.trim()) return "Rolling";
@@ -38,18 +44,6 @@ function deadlineBadge(deadline: string | null): { label: string; bg: string; te
   return { label: formatDeadline(deadline), bg: "#dcfce7", text: "#166534" };
 }
 
-function fitColour(score: number): string {
-  if (score >= 75) return "#22c55e";
-  if (score >= 50) return "#f59e0b";
-  return "#ef4444";
-}
-
-function componentBarColour(score: number): string {
-  if (score >= 20) return "#22c55e";
-  if (score >= 10) return "#f59e0b";
-  return "#ef4444";
-}
-
 function breakdownFromRow(
   b: unknown
 ): { location_score?: number; sector_score?: number; income_score?: number; deadline_score?: number } {
@@ -63,23 +57,82 @@ function breakdownFromRow(
   };
 }
 
-const COMPONENT_LABELS = ["Location", "Sector", "Income", "Deadline"] as const;
+async function fetchScoreRowWithOptionalReasons(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  organisationId: string;
+  opportunityId: string;
+}) {
+  const baseSelect = `
+    id,
+    opportunity_id,
+    fit_score,
+    fit_breakdown,
+    ev,
+    opportunities!inner (
+      id,
+      source_id,
+      title,
+      funder_name,
+      url,
+      deadline,
+      amount_text,
+      amount_min,
+      amount_max,
+      location_filters,
+      sector_filters,
+      income_bands,
+      description,
+      eligibility_summary,
+      is_active
+    )
+  `;
+
+  const withReasons = `
+    ${baseSelect},
+    match_reasons
+  `;
+
+  const attempt = await args.supabase
+    .from("scores")
+    .select(withReasons)
+    .eq("organisation_id", args.organisationId)
+    .eq("opportunity_id", args.opportunityId)
+    .maybeSingle();
+
+  if (!attempt.error) return attempt;
+
+  const msg = (attempt.error as { message?: string } | null)?.message ?? "";
+  if (msg.toLowerCase().includes("match_reasons") && msg.toLowerCase().includes("does not exist")) {
+    return await args.supabase
+      .from("scores")
+      .select(baseSelect)
+      .eq("organisation_id", args.organisationId)
+      .eq("opportunity_id", args.opportunityId)
+      .maybeSingle();
+  }
+
+  return attempt;
+}
 
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>;
-}): Promise<{ title: string }> {
+}): Promise<{ title: string; description?: string }> {
   const { id } = await params;
   try {
     const service = getSupabaseService();
     const { data } = await service
       .from("opportunities")
-      .select("title")
+      .select("title, description, eligibility_summary")
       .eq("id", id)
       .maybeSingle();
     const title = (data?.title as string | undefined) ?? "Opportunity";
-    return { title: `${title} | UnitasFund` };
+    const desc =
+      clampDescription((data?.eligibility_summary as string | null) ?? null, 160) ??
+      clampDescription((data?.description as string | null) ?? null, 160) ??
+      undefined;
+    return { title: `${title} | UnitasFund`, description: desc };
   } catch {
     return { title: "Opportunity | UnitasFund" };
   }
@@ -129,37 +182,14 @@ export default async function OpportunityDetailPage({
       }
     : null;
 
-  const { data: scoreRow, error } = await supabase
-    .from("scores")
-    .select(
-      `
-      id,
-      opportunity_id,
-      fit_score,
-      fit_breakdown,
-      ev,
-      opportunities!inner (
-        id,
-        source_id,
-        title,
-        funder_name,
-        url,
-        deadline,
-        amount_text,
-        amount_min,
-        amount_max,
-        location_filters,
-        sector_filters,
-        income_bands,
-        description,
-        eligibility_summary,
-        is_active
-      )
-    `
-    )
-    .eq("organisation_id", organisationId)
-    .eq("opportunity_id", id)
-    .maybeSingle();
+  const scoreRes = await fetchScoreRowWithOptionalReasons({
+    supabase,
+    organisationId,
+    opportunityId: id,
+  });
+
+  const scoreRow = scoreRes.data as any;
+  const error = scoreRes.error as any;
 
   if (error || !scoreRow) {
     return (
@@ -183,6 +213,7 @@ export default async function OpportunityDetailPage({
   const opp = scoreRow.opportunities as unknown as Record<string, unknown>;
   const fitScore = Number(scoreRow.fit_score ?? 0);
   const fitBreakdown = breakdownFromRow(scoreRow.fit_breakdown);
+  const ev = scoreRow.ev != null ? Number(scoreRow.ev) : null;
 
   const opportunityForReasons: Opportunity = {
     id: String(opp?.id ?? id),
@@ -201,7 +232,7 @@ export default async function OpportunityDetailPage({
     eligibility_summary: (opp?.eligibility_summary as string) ?? null,
   };
 
-  const matchReasons =
+  const computedMatchReasons =
     orgProfile &&
     buildMatchReasons(orgProfile, opportunityForReasons, {
       location_score: fitBreakdown.location_score ?? 0,
@@ -210,223 +241,76 @@ export default async function OpportunityDetailPage({
       deadline_score: fitBreakdown.deadline_score ?? 0,
     });
 
-  const scores = [
-    fitBreakdown.location_score ?? 0,
-    fitBreakdown.sector_score ?? 0,
-    fitBreakdown.income_score ?? 0,
-    fitBreakdown.deadline_score ?? 0,
-  ];
-  const reasons = matchReasons ?? [];
+  const reasonsFromDb = Array.isArray(scoreRow.match_reasons)
+    ? (scoreRow.match_reasons as unknown[]).map(String).filter(Boolean)
+    : null;
+  const reasons = reasonsFromDb ?? computedMatchReasons ?? [];
 
   const { data: existingPipeline } = await supabase
     .from("pipeline")
-    .select("id")
+    .select("id, status, notes")
     .eq("organisation_id", organisationId)
     .eq("opportunity_id", id)
     .limit(1)
     .maybeSingle();
 
-  const applyUrl = (opp?.url as string | null) ?? null;
-  const funderName = (opp?.funder_name as string | null) ?? null;
-  const amountText = (opp?.amount_text as string | null) ?? null;
-  const deadline = (opp?.deadline as string | null) ?? null;
-  const description = (opp?.description as string | null) ?? null;
-  const eligibilitySummary = (opp?.eligibility_summary as string | null) ?? null;
-  const deadlineUi = deadlineBadge(deadline);
+  const similarRes = await supabase
+    .from("scores")
+    .select(
+      `
+      opportunity_id,
+      fit_score,
+      opportunities!inner (
+        id,
+        title,
+        funder_name,
+        deadline,
+        is_active
+      )
+    `
+    )
+    .eq("organisation_id", organisationId)
+    .neq("opportunity_id", id)
+    .eq("opportunities.is_active", true)
+    .order("fit_score", { ascending: false })
+    .limit(3);
+
+  const similar = (similarRes.data ?? []).map((r: any) => ({
+    opportunity_id: String(r.opportunity_id ?? r.opportunities?.id ?? ""),
+    fit_score: Number(r.fit_score ?? 0),
+    title: String(r.opportunities?.title ?? "Untitled"),
+    funder_name: (r.opportunities?.funder_name as string | null) ?? null,
+    deadline: (r.opportunities?.deadline as string | null) ?? null,
+  }));
 
   return (
-    <div className="pb-12">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <BackButton />
-        <AddToPipelineButton
-          opportunityId={id}
-          initiallyAdded={Boolean(existingPipeline?.id)}
-        />
-      </div>
-
-      <div
-        className="mt-5 rounded-xl border overflow-hidden"
-        style={{ backgroundColor: "#fff", borderColor: "#ece6dd" }}
-      >
-        <div
-          className="px-6 py-5 border-b"
-          style={{ backgroundColor: NAVY, borderColor: "#2d3345" }}
-        >
-          <p
-            className="text-xs font-semibold tracking-widest uppercase mb-2"
-            style={{ color: GOLD }}
-          >
-            Opportunity
-          </p>
-          <h1 className="text-2xl font-bold" style={{ color: CREAM }}>
-            {String(opp?.title ?? "Untitled")}
-          </h1>
-          {funderName && (
-            <p className="mt-1 text-sm" style={{ color: "#a8b4c4" }}>
-              {funderName}
-            </p>
-          )}
-        </div>
-
-        <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div
-                className="rounded-lg border p-4"
-                style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5" }}
-              >
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: GOLD }}>
-                  Amount
-                </p>
-                <p className="mt-1 font-semibold" style={{ color: NAVY }}>
-                  {amountText ?? "—"}
-                </p>
-              </div>
-              <div
-                className="rounded-lg border p-4"
-                style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5" }}
-              >
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: GOLD }}>
-                  Deadline
-                </p>
-                <div className="mt-2 flex items-center gap-2 flex-wrap">
-                  <span
-                    className="text-xs font-semibold px-2 py-1 rounded"
-                    style={{ backgroundColor: deadlineUi.bg, color: deadlineUi.text }}
-                  >
-                    {deadlineUi.label}
-                  </span>
-                </div>
-              </div>
-              <div
-                className="rounded-lg border p-4"
-                style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5" }}
-              >
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: GOLD }}>
-                  Fit score
-                </p>
-                <div className="mt-2">
-                  <div
-                    className="h-2.5 rounded-full overflow-hidden mb-1"
-                    style={{ backgroundColor: "#e5e7eb" }}
-                  >
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(100, fitScore)}%`,
-                        backgroundColor: fitColour(fitScore),
-                      }}
-                    />
-                  </div>
-                  <p className="text-sm font-semibold tabular-nums" style={{ color: NAVY }}>
-                    {Math.round(fitScore)}%
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {applyUrl && (
-              <a
-                href={applyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90"
-                style={{ backgroundColor: GOLD, color: NAVY }}
-              >
-                Apply now →
-              </a>
-            )}
-
-            <div>
-              <h2 className="text-lg font-bold mb-2" style={{ color: NAVY }}>
-                Description
-              </h2>
-              <div
-                className="rounded-lg border p-4 text-sm whitespace-pre-wrap"
-                style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: "#374151" }}
-              >
-                {description?.trim()
-                  ? description
-                  : "No description available from this source. Click Apply Now to view full details on the funder’s website."}
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-bold mb-2" style={{ color: NAVY }}>
-                Eligibility summary
-              </h2>
-              <div
-                className="rounded-lg border p-4 text-sm whitespace-pre-wrap"
-                style={{ borderColor: "#ece6dd", backgroundColor: "#fff", color: "#374151" }}
-              >
-                {eligibilitySummary?.trim()
-                  ? eligibilitySummary
-                  : "Visit the funder’s website for full eligibility criteria."}
-              </div>
-            </div>
-          </div>
-
-          <aside className="space-y-4">
-            <div
-              className="rounded-xl border p-5"
-              style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5" }}
-            >
-              <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: GOLD }}>
-                Why this score?
-              </p>
-              <div className="space-y-4 text-sm">
-                {COMPONENT_LABELS.map((label, i) => {
-                  const score = scores[i] ?? 0;
-                  const reason = reasons[i] ?? "No detail available.";
-                  const pct = Math.round((score / COMPONENT_MAX) * 100);
-                  const barColor = componentBarColour(score);
-                  return (
-                    <div key={label} className="space-y-1">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span style={{ color: "#6b7280", fontWeight: 600 }}>{label}</span>
-                        <span className="tabular-nums" style={{ color: NAVY, fontWeight: 600 }}>
-                          {Math.round(score)}/{COMPONENT_MAX}
-                        </span>
-                      </div>
-                      <p style={{ color: NAVY, margin: 0 }}>{reason}</p>
-                      <div
-                        className="h-2 rounded-full overflow-hidden"
-                        style={{ backgroundColor: "#e5e7eb" }}
-                      >
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${Math.min(100, pct)}%`,
-                            backgroundColor: barColor,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div
-              className="rounded-xl border p-5"
-              style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}
-            >
-              <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: GOLD }}>
-                Match reasons
-              </p>
-              <ul className="text-sm space-y-2" style={{ color: NAVY }}>
-                {(reasons.length ? reasons : ["No match reasons available."]).map((r, idx) => (
-                  <li key={idx} className="flex gap-2">
-                    <span style={{ color: GOLD }}>•</span>
-                    <span>{r}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </div>
+    <OpportunityDetailClient
+      organisationId={organisationId}
+      opportunityId={id}
+      title={String(opp?.title ?? "Untitled")}
+      funder_name={(opp?.funder_name as string | null) ?? null}
+      url={(opp?.url as string | null) ?? null}
+      description={(opp?.description as string | null) ?? null}
+      eligibility_summary={(opp?.eligibility_summary as string | null) ?? null}
+      deadline={(opp?.deadline as string | null) ?? null}
+      amount_text={(opp?.amount_text as string | null) ?? null}
+      amount_min={opp?.amount_min != null ? Number(opp.amount_min) : null}
+      amount_max={opp?.amount_max != null ? Number(opp.amount_max) : null}
+      fit_score={fitScore}
+      fit_breakdown={fitBreakdown}
+      ev={ev}
+      match_reasons={reasons}
+      initialPipeline={
+        existingPipeline?.id
+          ? {
+              id: String(existingPipeline.id),
+              status: String(existingPipeline.status ?? "interested") as any,
+              notes: (existingPipeline.notes as string | null) ?? "",
+            }
+          : null
+      }
+      similar={similar.filter((s) => Boolean(s.opportunity_id))}
+    />
   );
 }
 

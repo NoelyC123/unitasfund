@@ -10,6 +10,12 @@ const VALID_STATUSES = [
   "lost",
 ] as const;
 
+function clampNotes(v: unknown): string {
+  if (typeof v !== "string") return "";
+  const t = v.slice(0, 1000);
+  return t;
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -32,16 +38,29 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { status } = body;
-    if (
-      !status ||
-      typeof status !== "string" ||
-      !VALID_STATUSES.includes(status as (typeof VALID_STATUSES)[number])
-    ) {
-      return NextResponse.json(
-        { error: "Valid status is required (interested, applying, submitted, won, lost)." },
-        { status: 400 }
-      );
+    const nextStatus = body?.status;
+    const nextNotes = body?.notes;
+    const update: Record<string, unknown> = {};
+
+    if (nextStatus != null) {
+      if (
+        typeof nextStatus !== "string" ||
+        !VALID_STATUSES.includes(nextStatus as (typeof VALID_STATUSES)[number])
+      ) {
+        return NextResponse.json(
+          { error: "Valid status is required (interested, applying, submitted, won, lost)." },
+          { status: 400 }
+        );
+      }
+      update.status = nextStatus;
+    }
+
+    if (nextNotes != null) {
+      update.notes = clampNotes(nextNotes);
+    }
+
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
     }
 
     const { data: link } = await supabase
@@ -78,7 +97,7 @@ export async function PUT(
 
     const { error: updateError } = await service
       .from("pipeline")
-      .update({ status })
+      .update(update)
       .eq("id", id);
 
     if (updateError) {
