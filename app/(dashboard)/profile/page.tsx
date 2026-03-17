@@ -5,6 +5,10 @@ import ProfileForm from "./ProfileForm";
 const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
 
+export const metadata = {
+  title: "Profile | UnitasFund",
+};
+
 export default async function ProfilePage() {
   const supabase = await createClient();
   const {

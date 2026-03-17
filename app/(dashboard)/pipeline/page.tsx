@@ -6,6 +6,10 @@ const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
 const CREAM = "#f7f4ef";
 
+export const metadata = {
+  title: "Pipeline | UnitasFund",
+};
+
 export default async function PipelinePage() {
   const supabase = await createClient();
   const {

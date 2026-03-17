@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/db/server";
+import { getSupabaseService } from "@/lib/db/client";
 import { redirect } from "next/navigation";
 import { buildMatchReasons } from "@/lib/scoring/fit";
 import type { OrgProfile, Opportunity } from "@/lib/scoring/types";
@@ -63,6 +64,26 @@ function breakdownFromRow(
 }
 
 const COMPONENT_LABELS = ["Location", "Sector", "Income", "Deadline"] as const;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<{ title: string }> {
+  const { id } = await params;
+  try {
+    const service = getSupabaseService();
+    const { data } = await service
+      .from("opportunities")
+      .select("title")
+      .eq("id", id)
+      .maybeSingle();
+    const title = (data?.title as string | undefined) ?? "Opportunity";
+    return { title: `${title} | UnitasFund` };
+  } catch {
+    return { title: "Opportunity | UnitasFund" };
+  }
+}
 
 export default async function OpportunityDetailPage({
   params,

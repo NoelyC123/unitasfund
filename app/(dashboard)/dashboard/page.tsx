@@ -8,6 +8,10 @@ const NAVY = "#1a1f2e";
 const GOLD = "#c9923a";
 const CREAM = "#f7f4ef";
 
+export const metadata = {
+  title: "Dashboard | UnitasFund",
+};
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
