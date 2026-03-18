@@ -27,7 +27,19 @@ export default async function PipelinePage() {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-8">
-          <h1 className="text-2xl font-bold text-[#1a1f2e] mb-2">Pipeline</h1>
+          <h1
+            style={{
+              fontFamily: "var(--font-heading, Georgia, serif)",
+              fontSize: "28px",
+              fontWeight: "700",
+              color: "#1a1f2e",
+              letterSpacing: "-0.02em",
+              marginBottom: "8px",
+              lineHeight: "1.2",
+            }}
+          >
+            Pipeline
+          </h1>
           <p className="mb-6 text-[#6b7280]">
             You need an organisation profile before you can use the pipeline.
           </p>

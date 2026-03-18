@@ -116,8 +116,28 @@ export default function DashboardClient({
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#1a1f2e]">{orgName}</h1>
-        <p className="text-sm text-[#6b7280] mt-1">
+        <h1
+          style={{
+            fontFamily: "var(--font-heading, Georgia, serif)",
+            fontSize: "32px",
+            fontWeight: "700",
+            color: "#1a1f2e",
+            letterSpacing: "-0.02em",
+            marginBottom: "6px",
+            lineHeight: "1.2",
+          }}
+        >
+          {orgName}
+        </h1>
+        <p
+          style={{
+            fontFamily: "var(--font-body, DM Sans, sans-serif)",
+            fontSize: "15px",
+            color: "#6b7f95",
+            fontWeight: "400",
+            lineHeight: "1.5",
+          }}
+        >
           {totalMatched === 0
             ? "No grant opportunities matched yet."
             : `${totalMatched} opportunities matched — ${highCount} HIGH fit. Top score: ${Math.round(topScore)}%`}
@@ -182,7 +202,17 @@ export default function DashboardClient({
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-4 mb-6">
+      <div
+        className="bg-white rounded-xl border border-[#e8e3da] shadow-sm p-4 mb-6"
+        style={{
+          backgroundColor: "white",
+          borderRadius: "16px",
+          border: "1px solid #ece6dd",
+          boxShadow: "0 1px 4px rgba(26,31,46,0.06)",
+          padding: "16px 20px",
+          marginBottom: "24px",
+        }}
+      >
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-[2]">
             <svg

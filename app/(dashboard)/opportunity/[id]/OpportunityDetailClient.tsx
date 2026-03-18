@@ -276,11 +276,29 @@ export default function OpportunityDetailClient(props: {
           <LinkBack />
 
           <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
-            <h1 className="text-2xl font-bold" style={{ color: NAVY }}>
+            <h1
+              style={{
+                fontFamily: "var(--font-heading, Georgia, serif)",
+                fontSize: "30px",
+                fontWeight: 700,
+                color: NAVY,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.15,
+              }}
+            >
               {props.title}
             </h1>
             {props.funder_name && (
-              <p className="mt-1 text-sm" style={{ color: MUTED }}>
+              <p
+                style={{
+                  fontFamily: "var(--font-body, DM Sans, sans-serif)",
+                  marginTop: "6px",
+                  fontSize: "16px",
+                  color: "#6b7f95",
+                  fontWeight: 400,
+                  lineHeight: 1.5,
+                }}
+              >
                 {props.funder_name}
               </p>
             )}
@@ -630,7 +648,16 @@ function LinkBack() {
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
-      <p className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: GOLD }}>
+      <p
+        className="uppercase tracking-wider mb-3"
+        style={{
+          fontFamily: "var(--font-body, DM Sans, sans-serif)",
+          fontSize: "12px",
+          fontWeight: 600,
+          color: GOLD,
+          letterSpacing: "0.12em",
+        }}
+      >
         {title}
       </p>
       {children}

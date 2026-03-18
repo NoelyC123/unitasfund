@@ -65,6 +65,7 @@ export default function OpportunityRow(props: {
   const [showWhyScore, setShowWhyScore] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   const band = bandFor(props.fit_score);
   const funderInitial = (props.funder_name?.trim()?.[0] ?? "U").toUpperCase();
@@ -111,10 +112,26 @@ export default function OpportunityRow(props: {
   const matchReasons = props.match_reasons ?? [];
   const showReasons = showWhyScore && matchReasons.length > 0;
 
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: "white",
+    borderRadius: "16px",
+    border: "1px solid #ece6dd",
+    boxShadow: hovered
+      ? "0 4px 20px rgba(26,31,46,0.10)"
+      : "0 1px 4px rgba(26,31,46,0.06), 0 0 0 0 transparent",
+    transform: hovered ? "translateY(-1px)" : "translateY(0)",
+    transition: "box-shadow 0.2s ease, transform 0.2s ease",
+    padding: "20px 24px",
+    marginBottom: "12px",
+    cursor: "pointer",
+  };
+
   return (
     <div
       onClick={() => router.push(`/opportunity/${props.id}`)}
-      style={{ cursor: "pointer" }}
+      style={cardStyle}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className="bg-white rounded-xl border border-[#e8e3da] shadow-sm hover:shadow-md transition-all duration-200 p-5 group"
       role="link"
       tabIndex={0}
@@ -154,10 +171,30 @@ export default function OpportunityRow(props: {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-[#1a1f2e] text-sm leading-snug group-hover:text-[#c9923a] transition-colors line-clamp-2">
+            <h3
+              style={{
+                fontFamily: "var(--font-heading, Georgia, serif)",
+                fontSize: "15px",
+                fontWeight: "600",
+                color: "#1a1f2e",
+                lineHeight: "1.3",
+                marginBottom: "2px",
+                letterSpacing: "-0.01em",
+              }}
+            >
               {props.title}
             </h3>
-            <p className="text-xs text-[#6b7280] mt-0.5">{props.funder_name ?? ""}</p>
+            <p
+              style={{
+                fontFamily: "var(--font-body, DM Sans, sans-serif)",
+                fontSize: "13px",
+                color: "#6b7f95",
+                fontWeight: "400",
+                marginTop: "2px",
+              }}
+            >
+              {props.funder_name ?? ""}
+            </p>
             {lcText && <p className="text-xs text-[#9ca3af] mt-0.5">{lcText}</p>}
           </div>
         </div>
@@ -171,6 +208,15 @@ export default function OpportunityRow(props: {
                   ? "bg-amber-100 text-amber-800"
                   : "bg-gray-100 text-gray-600"
             }`}
+            style={{
+              fontFamily: "var(--font-body, ui-sans-serif, system-ui, sans-serif)",
+              fontSize: "11px",
+              fontWeight: "600",
+              letterSpacing: "0.04em",
+              padding: "3px 10px",
+              borderRadius: "20px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            }}
           >
             {Math.round(props.fit_score)}% {band}
           </span>
@@ -185,6 +231,15 @@ export default function OpportunityRow(props: {
                     ? "bg-green-100 text-green-700"
                     : "bg-gray-100 text-gray-500"
             }`}
+            style={{
+              fontFamily: "var(--font-body, ui-sans-serif, system-ui, sans-serif)",
+              fontSize: "11px",
+              fontWeight: "600",
+              letterSpacing: "0.04em",
+              padding: "3px 10px",
+              borderRadius: "20px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            }}
           >
             {deadlineText}
           </span>

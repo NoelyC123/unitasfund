@@ -143,9 +143,33 @@ export default function DashboardShell(props: {
       >
         {/* Top section */}
         <div style={{ padding: "24px" }}>
-          <Link href="/dashboard" onClick={() => setMobileOpen(false)} style={{ textDecoration: "none" }}>
-            <span style={{ color: "white", fontWeight: "bold", fontSize: "20px" }}>Unitas</span>
-            <span style={{ color: "#c9923a", fontWeight: "bold", fontSize: "20px" }}>Fund</span>
+          <Link
+            href="/dashboard"
+            onClick={() => setMobileOpen(false)}
+            style={{ textDecoration: "none" }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-heading, Georgia, serif)",
+                fontWeight: "700",
+                fontSize: "20px",
+                color: "white",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Unitas
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-heading, Georgia, serif)",
+                fontWeight: "400",
+                fontSize: "20px",
+                color: "#c9923a",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Fund
+            </span>
           </Link>
         </div>
 
@@ -164,6 +188,8 @@ export default function DashboardShell(props: {
                   padding: "10px 12px",
                   borderRadius: "8px",
                   fontSize: "14px",
+                  fontFamily: "var(--font-body, ui-sans-serif, system-ui, sans-serif)",
+                  fontWeight: 500,
                   textDecoration: "none",
                   marginBottom: "4px",
                   color: active ? "white" : "rgba(255,255,255,0.6)",

@@ -43,7 +43,17 @@ export default async function ProfilePage() {
 
   return (
     <div style={{ maxWidth: "672px", margin: "0 auto", padding: "32px 24px" }}>
-      <h1 style={{ fontSize: "24px", fontWeight: "bold", color: "#1a1f2e", marginBottom: "8px" }}>
+      <h1
+        style={{
+          fontFamily: "var(--font-heading, Georgia, serif)",
+          fontSize: "28px",
+          fontWeight: "700",
+          color: "#1a1f2e",
+          letterSpacing: "-0.02em",
+          marginBottom: "8px",
+          lineHeight: "1.2",
+        }}
+      >
         Organisation Profile
       </h1>
       <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "32px" }}>

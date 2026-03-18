@@ -113,7 +113,19 @@ export default function SettingsClient(props: {
 
   return (
     <div style={{ maxWidth: "672px", margin: "0 auto", padding: "32px 24px" }}>
-      <h1 style={{ fontSize: "24px", fontWeight: "bold", color: "#1a1f2e", marginBottom: "8px" }}>Settings</h1>
+      <h1
+        style={{
+          fontFamily: "var(--font-heading, Georgia, serif)",
+          fontSize: "28px",
+          fontWeight: "700",
+          color: "#1a1f2e",
+          letterSpacing: "-0.02em",
+          marginBottom: "8px",
+          lineHeight: "1.2",
+        }}
+      >
+        Settings
+      </h1>
       <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "32px" }}>
         Manage your alerts and account preferences.
       </p>
@@ -128,7 +140,16 @@ export default function SettingsClient(props: {
           marginBottom: "16px",
         }}
       >
-        <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#1a1f2e", marginBottom: "16px" }}>
+        <h2
+          style={{
+            fontFamily: "var(--font-heading, Georgia, serif)",
+            fontSize: "18px",
+            fontWeight: 600,
+            color: "#1a1f2e",
+            marginBottom: "16px",
+            letterSpacing: "-0.01em",
+          }}
+        >
           Alert preferences
         </h2>
 
@@ -271,7 +292,18 @@ export default function SettingsClient(props: {
           marginBottom: "16px",
         }}
       >
-        <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#1a1f2e", marginBottom: "16px" }}>Account</h2>
+        <h2
+          style={{
+            fontFamily: "var(--font-heading, Georgia, serif)",
+            fontSize: "18px",
+            fontWeight: 600,
+            color: "#1a1f2e",
+            marginBottom: "16px",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Account
+        </h2>
         <div style={{ padding: "12px 0", borderBottom: "1px solid #f0ece4" }}>
           <p style={{ fontSize: "12px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>
             Email
@@ -308,7 +340,18 @@ export default function SettingsClient(props: {
           boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
         }}
       >
-        <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#1a1f2e", marginBottom: "16px" }}>Plan</h2>
+        <h2
+          style={{
+            fontFamily: "var(--font-heading, Georgia, serif)",
+            fontSize: "18px",
+            fontWeight: 600,
+            color: "#1a1f2e",
+            marginBottom: "16px",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Plan
+        </h2>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
           <div>
             <p style={{ fontSize: "14px", fontWeight: 600, color: "#1a1f2e" }}>{sub.loading ? "Loading…" : planName}</p>

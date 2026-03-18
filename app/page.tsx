@@ -25,8 +25,29 @@ export default async function HomePage() {
         style={{ backgroundColor: NAVY, borderColor: "#2d3345" }}
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <span className="font-semibold" style={{ color: CREAM }}>
-            UnitasFund
+          <span style={{ display: "inline-flex", alignItems: "baseline", gap: "0" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-heading, Georgia, serif)",
+                fontWeight: 700,
+                fontSize: "18px",
+                color: CREAM,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Unitas
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-heading, Georgia, serif)",
+                fontWeight: 400,
+                fontSize: "18px",
+                color: GOLD,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Fund
+            </span>
           </span>
           <div className="flex items-center gap-4">
             <Link
@@ -57,14 +78,26 @@ export default async function HomePage() {
       {/* Hero */}
       <section className="px-6 py-20 text-center max-w-3xl mx-auto">
         <h1
-          className="text-4xl sm:text-5xl font-bold mb-4 leading-tight"
-          style={{ color: NAVY }}
+          style={{
+            fontFamily: "var(--font-heading, Georgia, serif)",
+            fontSize: "52px",
+            fontWeight: 700,
+            color: NAVY,
+            letterSpacing: "-0.02em",
+            marginBottom: "16px",
+            lineHeight: "1.08",
+          }}
         >
           Find the right funding. Apply with confidence.
         </h1>
         <p
-          className="text-xl sm:text-2xl mb-10 leading-relaxed"
-          style={{ color: "#4a5568" }}
+          style={{
+            fontFamily: "var(--font-body, DM Sans, sans-serif)",
+            fontSize: "18px",
+            lineHeight: 1.6,
+            color: "#6b7f95",
+            marginBottom: "40px",
+          }}
         >
           UnitasFund matches your organisation to grants you can actually win —
           scored, ranked and explained.
@@ -90,7 +123,17 @@ export default async function HomePage() {
           >
             How it works
           </p>
-          <h2 className="text-2xl font-bold mb-12" style={{ color: NAVY }}>
+          <h2
+            style={{
+              fontFamily: "var(--font-heading, Georgia, serif)",
+              fontSize: "28px",
+              fontWeight: 700,
+              color: NAVY,
+              letterSpacing: "-0.02em",
+              marginBottom: "48px",
+              lineHeight: 1.2,
+            }}
+          >
             Three steps to better funding
           </h2>
           <div className="grid sm:grid-cols-3 gap-10">
@@ -154,7 +197,17 @@ export default async function HomePage() {
           >
             Key features
           </p>
-          <h2 className="text-2xl font-bold mb-12" style={{ color: NAVY }}>
+          <h2
+            style={{
+              fontFamily: "var(--font-heading, Georgia, serif)",
+              fontSize: "28px",
+              fontWeight: 700,
+              color: NAVY,
+              letterSpacing: "-0.02em",
+              marginBottom: "48px",
+              lineHeight: 1.2,
+            }}
+          >
             Built for organisations that chase grants
           </h2>
           <div className="grid sm:grid-cols-2 gap-8">
@@ -235,7 +288,17 @@ export default async function HomePage() {
             >
               Pricing
             </p>
-            <h2 className="text-2xl font-bold mb-2" style={{ color: NAVY }}>
+            <h2
+              style={{
+                fontFamily: "var(--font-heading, Georgia, serif)",
+                fontSize: "28px",
+                fontWeight: 700,
+                color: NAVY,
+                letterSpacing: "-0.02em",
+                marginBottom: "8px",
+                lineHeight: 1.2,
+              }}
+            >
               From free to full-featured
             </h2>
             <p className="text-sm" style={{ color: "#4a5568" }}>
