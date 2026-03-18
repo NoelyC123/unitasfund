@@ -231,6 +231,20 @@ export default function DashboardShell(props: {
               Sign out
             </button>
           </form>
+          <div style={{ marginTop: "10px" }}>
+            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px", lineHeight: 1.4 }}>
+              Award data published using the{" "}
+              <a
+                href="https://www.360giving.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "rgba(255,255,255,0.55)", textDecoration: "underline" }}
+              >
+                360Giving
+              </a>{" "}
+              Data Standard
+            </span>
+          </div>
         </div>
       </div>
 
