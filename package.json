@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "ingest": "npx tsx scripts/ingest/ingest-opportunities.ts",
+    "ingest:360": "tsx scripts/ingest/ingest-360giving.ts",
     "ingest:gtr": "npx tsx scripts/ingest/scrape-gtr.ts",
     "enrich": "npx tsx scripts/ingest/enrich-opportunities.ts",
     "alerts": "npx tsx scripts/alerts/send-alerts.ts",
