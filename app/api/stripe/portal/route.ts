@@ -28,9 +28,10 @@ export async function POST() {
     );
   }
 
+  const siteUrl = process.env.SITE_URL ?? "https://unitasfund.vercel.app";
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: stripeCustomerId,
-    return_url: "https://unitasfund.vercel.app/settings",
+    return_url: `${siteUrl}/settings`,
   });
 
   return NextResponse.json({ url: portalSession.url });

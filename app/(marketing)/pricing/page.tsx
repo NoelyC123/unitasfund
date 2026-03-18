@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { PLANS, type PlanId } from "@/lib/stripe/plans";
@@ -40,10 +40,21 @@ function CheckIcon() {
 export default function PricingPage() {
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<PlanId>("free");
 
   const cards = useMemo(() => {
-    const order: PlanId[] = ["free", "starter", "pro", "team", "adviser"];
+    const order: PlanId[] = ["free", "starter", "pro"];
     return order.map((id) => ({ id, ...PLANS[id] }));
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("/api/stripe/subscription", { method: "GET" });
+      const json = (await res.json().catch(() => null)) as SubscriptionInfo | null;
+      if (json && json.status !== "anonymous" && json.plan) {
+        setCurrentPlan(json.plan);
+      }
+    })().catch(() => null);
   }, []);
 
   async function startCheckout(planId: PlanId) {
@@ -73,7 +84,7 @@ export default function PricingPage() {
       const checkout = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId, priceId }),
+        body: JSON.stringify({ priceId, planId }),
       });
       const out = await checkout.json().catch(() => null);
       if (!checkout.ok) {
@@ -136,11 +147,17 @@ export default function PricingPage() {
         {cards.map((plan) => {
           const id = plan.id as PlanId;
           const popular = id === "pro";
+          const isCurrent = currentPlan === id;
 
-          const priceRaw = (PLANS[id] as any).monthlyPrice as number | undefined;
-          const price = id === "free" ? 0 : priceRaw ?? 0;
+          const price =
+            id === "free" ? 0 : id === "starter" ? 29 : id === "pro" ? 79 : 0;
 
-          const cta = id === "free" ? "Get started free" : `Start ${PLANS[id].name}`;
+          const cta =
+            isCurrent && id !== "free"
+              ? "Current plan"
+              : id === "free"
+              ? "Get started free"
+              : "Upgrade";
 
           return (
             <div
@@ -148,7 +165,11 @@ export default function PricingPage() {
               style={{
                 backgroundColor: "white",
                 borderRadius: "16px",
-                border: popular ? "2px solid #c9923a" : "1px solid #e8e3da",
+                border: isCurrent
+                  ? "2px solid #22c55e"
+                  : popular
+                  ? "2px solid #c9923a"
+                  : "1px solid #e8e3da",
                 padding: "32px 24px",
                 boxShadow: popular ? "0 4px 24px rgba(201,146,58,0.15)" : "0 1px 3px rgba(0,0,0,0.08)",
                 position: "relative",
@@ -216,12 +237,12 @@ export default function PricingPage() {
                   border: "none",
                   fontSize: "14px",
                   fontWeight: 600,
-                  cursor: loadingPlan === id ? "default" : "pointer",
+                  cursor: loadingPlan === id || (isCurrent && id !== "free") ? "default" : "pointer",
                   backgroundColor: popular ? "#c9923a" : "#1a1f2e",
                   color: "white",
                   opacity: loadingPlan === id ? 0.7 : 1,
                 }}
-                disabled={loadingPlan === id}
+                disabled={loadingPlan === id || (isCurrent && id !== "free")}
                 onClick={() => startCheckout(id)}
               >
                 {loadingPlan === id ? "Loading…" : cta}

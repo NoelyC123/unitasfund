@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/server";
 import { getSupabaseService } from "@/lib/db/client";
 import { getStripe } from "@/lib/stripe/client";
-import { PLANS, type PlanId } from "@/lib/stripe/plans";
+import { getPlanFromPriceId, PLANS, type PlanId } from "@/lib/stripe/plans";
 
 type Body = { priceId?: string; planId?: PlanId };
 
@@ -25,21 +25,29 @@ export async function POST(request: NextRequest) {
 
   const planId = body?.planId;
   const priceId = body?.priceId;
-  if (!planId || typeof planId !== "string") {
-    return NextResponse.json({ error: "planId is required." }, { status: 400 });
-  }
-  if (!(planId in PLANS) || planId === "free") {
-    return NextResponse.json({ error: "Invalid planId." }, { status: 400 });
-  }
+
   if (!priceId || typeof priceId !== "string") {
     return NextResponse.json({ error: "priceId is required." }, { status: 400 });
   }
-  const expectedPriceId = PLANS[planId].priceId;
+
+  const inferredPlan = (planId && planId in PLANS ? planId : getPlanFromPriceId(priceId)) as PlanId;
+  if (inferredPlan === "free" || !(inferredPlan in PLANS)) {
+    return NextResponse.json({ error: "Invalid priceId." }, { status: 400 });
+  }
+  const expectedPriceId = PLANS[inferredPlan].priceId;
   if (!expectedPriceId || expectedPriceId !== priceId) {
-    return NextResponse.json({ error: "priceId does not match planId." }, { status: 400 });
+    return NextResponse.json({ error: "priceId does not match configured plan." }, { status: 400 });
   }
 
   const service = getSupabaseService();
+  const { data: orgRow } = await service
+    .from("user_organisations")
+    .select("organisation_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+  const organisationId = (orgRow?.organisation_id as string | null) ?? null;
+
   const existing = await service
     .from("subscriptions")
     .select("stripe_customer_id")
@@ -67,14 +75,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const siteUrl = process.env.SITE_URL ?? "https://unitasfund.vercel.app";
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    success_url: "https://unitasfund.vercel.app/dashboard?upgraded=true",
-    cancel_url: "https://unitasfund.vercel.app/pricing",
+    success_url: `${siteUrl}/dashboard?upgraded=true`,
+    cancel_url: `${siteUrl}/pricing`,
     customer: stripeCustomerId,
     line_items: [{ price: priceId, quantity: 1 }],
-    metadata: { userId: user.id, planId },
-    subscription_data: { metadata: { userId: user.id, planId } },
+    customer_email: user.email ?? undefined,
+    metadata: { userId: user.id, planId: inferredPlan, organisation_id: organisationId ?? "" },
+    subscription_data: { metadata: { userId: user.id, planId: inferredPlan, organisation_id: organisationId ?? "" } },
   });
 
   return NextResponse.json({ url: session.url });
