@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/db/server";
 import { redirect } from "next/navigation";
 import ProfileForm from "./ProfileForm";
+import FadeIn from "@/components/FadeIn";
 
 export const metadata = {
   title: "Profile | UnitasFund",
@@ -42,26 +43,29 @@ export default async function ProfilePage() {
   };
 
   return (
-    <div style={{ maxWidth: "672px", margin: "0 auto", padding: "32px 24px" }}>
-      <h1
-        style={{
-          fontFamily: "var(--font-heading, Georgia, serif)",
-          fontSize: "28px",
-          fontWeight: "700",
-          color: "#1a1f2e",
-          letterSpacing: "-0.02em",
-          marginBottom: "8px",
-          lineHeight: "1.2",
-        }}
-      >
-        Organisation Profile
-      </h1>
-      <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "32px" }}>
-        Updating your profile will re-score all opportunities.
-      </p>
+    <FadeIn>
+      <div className="max-w-2xl mx-auto">
+        <div
+          className="rounded-xl border p-8"
+          style={{ backgroundColor: "#fff", borderColor: "#ece6dd" }}
+        >
+          <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: "#c9923a" }}>
+            Your organisation
+          </p>
+          <h1
+            className="text-2xl font-bold mb-2"
+            style={{ color: "#1a1f2e", fontFamily: "var(--font-heading, Georgia, serif)" }}
+          >
+            Organisation Profile
+          </h1>
+          <p className="text-sm mb-6" style={{ color: "#4a5568" }}>
+            Updating your profile will re-score all opportunities.
+          </p>
 
-      <ProfileForm initial={initial} />
-    </div>
+          <ProfileForm initial={initial} />
+        </div>
+      </div>
+    </FadeIn>
   );
 }
 

@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import OpportunityRow from "./OpportunityRow";
 import type { PlanId } from "@/lib/stripe/plans";
+import FadeIn from "@/components/FadeIn";
 
 const BORDER = "#e8e3da";
+const NAVY = "#1a1f2e";
+const GOLD = "#c9923a";
 
 type FitBreakdown = {
   location_score?: number;
@@ -114,35 +117,48 @@ export default function DashboardClient({
   }, []);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
-        <h1
-          style={{
-            fontFamily: "var(--font-heading, Georgia, serif)",
-            fontSize: "32px",
-            fontWeight: "700",
-            color: "#1a1f2e",
-            letterSpacing: "-0.02em",
-            marginBottom: "6px",
-            lineHeight: "1.2",
-          }}
+    <FadeIn>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        {/* Dashboard header with warm background */}
+        <div
+          className="-mx-6 -mt-8 px-6 pt-8 pb-6 mb-8 rounded-b-2xl"
+          style={{ backgroundColor: "#faf8f5", borderBottom: "1px solid #ece6dd" }}
         >
-          {orgName}
-        </h1>
-        <p
-          style={{
-            fontFamily: "var(--font-body, DM Sans, sans-serif)",
-            fontSize: "15px",
-            color: "#6b7f95",
-            fontWeight: "400",
-            lineHeight: "1.5",
-          }}
-        >
-          {totalMatched === 0
-            ? "No grant opportunities matched yet."
-            : `${totalMatched} opportunities matched — ${highCount} HIGH fit. Top score: ${Math.round(topScore)}%`}
-        </p>
-      </div>
+          <header className="mb-6">
+            <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: GOLD }}>
+              Dashboard
+            </p>
+            <h1
+              className="text-3xl font-bold mb-2"
+              style={{ color: NAVY, fontFamily: "var(--font-heading, Georgia, serif)" }}
+            >
+              {orgName}
+            </h1>
+            <p className="text-sm" style={{ color: "#4a5568" }}>
+              {totalMatched === 0
+                ? "No grant opportunities matched yet."
+                : `${totalMatched} ${totalMatched === 1 ? "opportunity" : "opportunities"} matched — ${highCount} high fit. Top score: ${Math.round(topScore)}%.`}
+            </p>
+          </header>
+
+          {/* Summary stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg px-4 py-3" style={{ backgroundColor: "#fff", border: "1px solid #ece6dd" }}>
+              <p className="text-xs" style={{ color: "#6b7280" }}>Matched</p>
+              <p className="text-xl font-bold tabular-nums" style={{ color: NAVY }}>{totalMatched}</p>
+            </div>
+            <div className="rounded-lg px-4 py-3" style={{ backgroundColor: "#fff", border: "1px solid #ece6dd" }}>
+              <p className="text-xs" style={{ color: "#6b7280" }}>High fit</p>
+              <p className="text-xl font-bold tabular-nums" style={{ color: "#166534" }}>
+                {highCount}
+              </p>
+            </div>
+            <div className="rounded-lg px-4 py-3" style={{ backgroundColor: "#fff", border: "1px solid #ece6dd" }}>
+              <p className="text-xs" style={{ color: "#6b7280" }}>Top score</p>
+              <p className="text-xl font-bold tabular-nums" style={{ color: GOLD }}>{Math.round(topScore)}%</p>
+            </div>
+          </div>
+        </div>
 
       {upgradeSuccessVisible && (
         <div
@@ -310,13 +326,16 @@ export default function DashboardClient({
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filteredSorted.map((row, i) => (
-            <OpportunityRow key={row.id} {...row} rank={i + 1} plan={plan} pipelineCount={pipelineCount} />
+            <FadeIn key={row.id} delay={250 + i * 50}>
+              <OpportunityRow row={{ ...row, rank: i + 1 }} plan={plan} pipelineCount={pipelineCount} />
+            </FadeIn>
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </FadeIn>
   );
 }
 

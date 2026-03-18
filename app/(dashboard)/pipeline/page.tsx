@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/db/server";
 import { redirect } from "next/navigation";
 import PipelineTable from "./PipelineTable";
+import FadeIn from "@/components/FadeIn";
 
 const NAVY = "#1a1f2e";
 
@@ -109,7 +110,8 @@ export default async function PipelinePage() {
   });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <FadeIn>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#1a1f2e]">Pipeline</h1>
         <p className="text-sm text-[#6b7280] mt-1">Track your grant applications from interested to won.</p>
@@ -133,6 +135,7 @@ export default async function PipelinePage() {
       ) : (
         <PipelineTable items={items} />
       )}
-    </div>
+      </div>
+    </FadeIn>
   );
 }

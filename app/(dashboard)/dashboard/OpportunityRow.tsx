@@ -5,12 +5,31 @@ import { useRouter } from "next/navigation";
 import type { PlanId } from "@/lib/stripe/plans";
 import { pipelineLimitReached } from "@/lib/stripe/gate";
 
-function formatEv(ev: number | null): string {
-  if (ev == null || Number.isNaN(ev)) return "—";
-  const n = Math.round(ev);
-  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`;
-  return `£${n.toLocaleString("en-GB")}`;
-}
+const NAVY = "#1a1f2e";
+const GOLD = "#c9923a";
+const CREAM = "#f7f4ef";
+
+type FitBreakdown = {
+  location_score?: number;
+  sector_score?: number;
+  income_score?: number;
+  deadline_score?: number;
+};
+
+type ScoredOpportunity = {
+  rank: number;
+  id: string;
+  title: string;
+  funder_name: string | null;
+  url: string | null;
+  fit_score: number;
+  fit_breakdown: FitBreakdown | null;
+  ev: number | null;
+  deadline: string | null;
+  amount_text: string | null;
+  source_id?: string | null;
+  match_reasons?: string[];
+};
 
 function formatDeadline(d: string | null): string {
   if (!d || !d.trim()) return "Rolling";
@@ -22,63 +41,86 @@ function formatDeadline(d: string | null): string {
   return `${day} ${month} ${year}`;
 }
 
-function daysUntilDeadline(d: string | null): number | null {
-  if (!d || !d.trim()) return null;
-  const date = new Date(d.trim());
-  const t = date.getTime();
-  if (Number.isNaN(t)) return null;
-  return Math.floor((t - Date.now()) / (1000 * 60 * 60 * 24));
+function fitTier(score: number): { label: string; bg: string; text: string } {
+  if (score >= 75) return { label: "HIGH", bg: "#f0fdf4", text: "#166534" };
+  if (score >= 50) return { label: "MEDIUM", bg: "#fffbeb", text: "#92400e" };
+  return { label: "LOW", bg: "#fef2f2", text: "#991b1b" };
 }
 
-function lastCheckedText(lastCheckedAt?: string | null): string | null {
-  if (!lastCheckedAt || !lastCheckedAt.trim()) return "Not yet verified";
-  const d = new Date(lastCheckedAt);
-  const t = d.getTime();
-  if (Number.isNaN(t)) return "Not yet verified";
-  const diffDays = Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24));
-  if (diffDays < 1) return null;
-  if (diffDays <= 7) return `Checked ${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-  return `Last checked ${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+function formatEv(ev: number | null): string {
+  if (ev == null || Number.isNaN(ev)) return "—";
+  const n = Math.round(ev);
+  if (n >= 1_000_000) return `£${(n / 1_000_000).toFixed(1)}m`;
+  return `£${n.toLocaleString("en-GB")}`;
 }
 
-type ScoreBand = "HIGH" | "MEDIUM" | "LOW";
-function bandFor(score: number): ScoreBand {
-  if (score >= 75) return "HIGH";
-  if (score >= 50) return "MEDIUM";
-  return "LOW";
+/** Get avatar initial and colour from source */
+function sourceAvatar(
+  funderName: string | null,
+  sourceId: string | null
+): { letter: string; bg: string; color: string } {
+  const letter = (funderName ?? "?").charAt(0).toUpperCase();
+  // Colour by source type
+  if (sourceId?.includes("gov") || sourceId?.includes("find-funding"))
+    return { letter, bg: "#f0fdf4", color: "#166534" };
+  if (sourceId?.includes("lottery") || sourceId?.includes("nlcf"))
+    return { letter, bg: "#eff6ff", color: "#1e40af" };
+  if (sourceId?.includes("sport"))
+    return { letter, bg: "#fdf4ff", color: "#7e22ce" };
+  if (sourceId?.includes("arts"))
+    return { letter, bg: "#fff7ed", color: "#c2410c" };
+  // Default gold for community foundations etc.
+  return { letter, bg: "#fef9ee", color: "#92400e" };
 }
 
-export default function OpportunityRow(props: {
-  rank: number;
-  id: string;
-  title: string;
-  funder_name: string | null;
-  fit_score: number;
-  deadline: string | null;
-  ev: number | null;
-  last_checked_at?: string | null;
-  match_reasons?: string[];
+/** Check if source is a verified/official source */
+function isVerifiedSource(sourceId: string | null): boolean {
+  const verified = [
+    "gov",
+    "find-funding",
+    "ukri",
+    "gtr",
+    "nlcf",
+    "lottery",
+    "sport-england",
+    "arts-council",
+    "grants-online",
+  ];
+  if (!sourceId) return false;
+  return verified.some((v) => sourceId.toLowerCase().includes(v));
+}
+
+export default function OpportunityRow({
+  row,
+  plan,
+  pipelineCount,
+}: {
+  row: ScoredOpportunity;
   plan: PlanId;
   pipelineCount: number;
 }) {
   const router = useRouter();
-  const [showWhyScore, setShowWhyScore] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  const band = bandFor(props.fit_score);
-  const funderInitial = (props.funder_name?.trim()?.[0] ?? "U").toUpperCase();
-  const daysUntil = daysUntilDeadline(props.deadline);
-  const deadlineText = formatDeadline(props.deadline);
-  const formattedEV = formatEv(props.ev);
-  const lcText = lastCheckedText(props.last_checked_at);
-
-  const isFree = props.plan === "free";
+  const isFree = plan === "free";
   const pipelineLocked = useMemo(() => {
     if (!isFree) return false;
-    return pipelineLimitReached({ plan: props.plan, pipelineCount: props.pipelineCount });
-  }, [isFree, props.plan, props.pipelineCount]);
+    return pipelineLimitReached({ plan, pipelineCount });
+  }, [isFree, plan, pipelineCount]);
+
+  const breakdown = row.fit_breakdown ?? {};
+  const loc = breakdown.location_score ?? 0;
+  const sec = breakdown.sector_score ?? 0;
+  const inc = breakdown.income_score ?? 0;
+  const dead = breakdown.deadline_score ?? 0;
+  const maxComponent = 25;
+  const tier = fitTier(row.fit_score);
+  const avatar = sourceAvatar(row.funder_name, row.source_id ?? null);
+  const verified = isVerifiedSource(row.source_id ?? null);
+  const reasons = row.match_reasons ?? [];
 
   async function addToPipeline() {
     if (pipelineLocked) return;
@@ -87,7 +129,7 @@ export default function OpportunityRow(props: {
       const res = await fetch("/api/pipeline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ opportunity_id: props.id }),
+        body: JSON.stringify({ opportunity_id: row.id }),
       });
       if (res.ok) setAdded(true);
     } finally {
@@ -95,212 +137,220 @@ export default function OpportunityRow(props: {
     }
   }
 
-  function handleCardClick() {
-    router.push(`/opportunity/${props.id}`);
-  }
-
-  function handleWhyScore(e: React.MouseEvent) {
-    e.stopPropagation();
-    setShowWhyScore((v) => !v);
-  }
-
-  async function handleAddToPipeline(e: React.MouseEvent) {
-    e.stopPropagation();
-    await addToPipeline();
-  }
-
-  const matchReasons = props.match_reasons ?? [];
-  const showReasons = showWhyScore && matchReasons.length > 0;
-
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: "white",
-    borderRadius: "16px",
-    border: "1px solid #ece6dd",
-    boxShadow: hovered
-      ? "0 4px 20px rgba(26,31,46,0.10)"
-      : "0 1px 4px rgba(26,31,46,0.06), 0 0 0 0 transparent",
-    transform: hovered ? "translateY(-1px)" : "translateY(0)",
-    transition: "box-shadow 0.2s ease, transform 0.2s ease",
-    padding: "20px 24px",
-    marginBottom: "12px",
-    cursor: "pointer",
-  };
-
   return (
     <div
-      onClick={() => router.push(`/opportunity/${props.id}`)}
-      style={cardStyle}
+      className="rounded-xl border overflow-hidden transition-all duration-200"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="bg-white rounded-xl border border-[#e8e3da] shadow-sm hover:shadow-md transition-all duration-200 p-5 group"
+      onClick={() => router.push(`/opportunity/${row.id}`)}
       role="link"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") handleCardClick();
+        if (e.key === "Enter" || e.key === " ") router.push(`/opportunity/${row.id}`);
+      }}
+      style={{
+        backgroundColor: "#fff",
+        borderColor: hovered ? "#c9923a40" : "#ece6dd",
+        boxShadow: hovered ? "0 2px 12px rgba(201, 146, 58, 0.08)" : "none",
+        cursor: "pointer",
       }}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          <span className="text-xs text-[#9ca3af] w-5 pt-1 flex-shrink-0 font-mono">{props.rank}</span>
-
+      {/* Main card content */}
+      <div className="px-6 py-5">
+        <div className="flex items-start gap-4">
+          {/* Source avatar */}
           <div
-            style={{
-              width: "40px",
-              height: "40px",
-              minWidth: "40px",
-              minHeight: "40px",
-              borderRadius: "50%",
-              backgroundColor: "#c9923a",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              overflow: "hidden",
-            }}
+            className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-sm font-semibold"
+            style={{ backgroundColor: avatar.bg, color: avatar.color }}
+            aria-hidden="true"
           >
-            <span
+            {avatar.letter}
+          </div>
+
+          {/* Title and source */}
+          <div className="min-w-0 flex-1">
+            <div
+              className="font-semibold block leading-snug"
               style={{
-                color: "white",
-                fontWeight: "bold",
-                fontSize: "14px",
-                lineHeight: 1,
+                color: NAVY,
+                fontFamily: "var(--font-heading, Georgia, serif)",
+                fontSize: "1.05rem",
               }}
             >
-              {funderInitial}
+              {row.title}
+            </div>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {row.funder_name && (
+                <span className="text-sm" style={{ color: "#4a5568" }}>
+                  {row.funder_name}
+                </span>
+              )}
+              {verified ? (
+                <span
+                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
+                  style={{ backgroundColor: "#f0fdf4", color: "#166534" }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path
+                      d="M10 3L4.5 8.5L2 6"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Verified
+                </span>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
+                  style={{ backgroundColor: "#fffbeb", color: "#92400e" }}
+                >
+                  Not yet verified
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Score + amount + deadline */}
+          <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+            <span
+              className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: tier.bg, color: tier.text }}
+            >
+              {Math.round(row.fit_score)}% {tier.label}
+            </span>
+            {row.amount_text && (
+              <span className="text-sm font-semibold" style={{ color: GOLD }}>
+                {row.amount_text}
+              </span>
+            )}
+            <span className="text-xs" style={{ color: "#6b7280" }}>
+              {formatDeadline(row.deadline)}
             </span>
           </div>
-
-          <div className="min-w-0 flex-1">
-            <h3
-              style={{
-                fontFamily: "var(--font-heading, Georgia, serif)",
-                fontSize: "15px",
-                fontWeight: "600",
-                color: "#1a1f2e",
-                lineHeight: "1.3",
-                marginBottom: "2px",
-                letterSpacing: "-0.01em",
-              }}
-            >
-              {props.title}
-            </h3>
-            <p
-              style={{
-                fontFamily: "var(--font-body, DM Sans, sans-serif)",
-                fontSize: "13px",
-                color: "#6b7f95",
-                fontWeight: "400",
-                marginTop: "2px",
-              }}
-            >
-              {props.funder_name ?? ""}
-            </p>
-            {lcText && <p className="text-xs text-[#9ca3af] mt-0.5">{lcText}</p>}
-          </div>
         </div>
 
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+        {/* EV row (if available) */}
+        {row.ev != null && (
+          <div className="mt-3 ml-14 text-sm" style={{ color: "#6b7280" }}>
+            Expected value:{" "}
+            <span className="font-semibold" style={{ color: NAVY }}>
+              {isFree ? `${formatEv(row.ev)} — Upgrade` : formatEv(row.ev)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Action bar */}
+      <div
+        className="flex items-center gap-3 px-6 py-3 border-t"
+        style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border transition-colors"
+          style={{
+            color: GOLD,
+            borderColor: "#ece6dd",
+            backgroundColor: expanded ? "#fef9ee" : "transparent",
+          }}
+          aria-expanded={expanded}
+        >
+          Why this score?
           <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-              band === "HIGH"
-                ? "bg-green-100 text-green-800"
-                : band === "MEDIUM"
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-gray-100 text-gray-600"
-            }`}
+            className="inline-block transition-transform text-xs"
+            style={{ transform: expanded ? "rotate(180deg)" : "none" }}
+          >
+            ▼
+          </span>
+        </button>
+
+        <div className="ml-auto flex items-center gap-3">
+          {pipelineLocked && (
+            <a href="/pricing" className="text-xs font-medium hover:underline" style={{ color: GOLD }}>
+              Upgrade to add more
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={addToPipeline}
+            disabled={adding || added || pipelineLocked}
+            className="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-60"
             style={{
-              fontFamily: "var(--font-body, ui-sans-serif, system-ui, sans-serif)",
-              fontSize: "11px",
-              fontWeight: "600",
-              letterSpacing: "0.04em",
-              padding: "3px 10px",
-              borderRadius: "20px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              backgroundColor: added ? "#166534" : GOLD,
+              color: "#fff",
             }}
           >
-            {Math.round(props.fit_score)}% {band}
-          </span>
+            {added ? "✓ In pipeline" : adding ? "Adding…" : "+ Add to pipeline"}
+          </button>
+        </div>
+      </div>
 
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-              daysUntil != null && daysUntil < 14
-                ? "bg-red-100 text-red-700"
-                : daysUntil != null && daysUntil < 30
-                  ? "bg-amber-100 text-amber-700"
-                  : props.deadline
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-500"
-            }`}
-            style={{
-              fontFamily: "var(--font-body, ui-sans-serif, system-ui, sans-serif)",
-              fontSize: "11px",
-              fontWeight: "600",
-              letterSpacing: "0.04em",
-              padding: "3px 10px",
-              borderRadius: "20px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-            }}
-          >
-            {deadlineText}
-          </span>
+      {/* Expanded score breakdown */}
+      {expanded && (
+        <div
+          className="px-6 py-4 border-t grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm"
+          style={{ borderColor: "#ece6dd", backgroundColor: "#faf8f5" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {[
+            { label: "Location", score: loc },
+            { label: "Sector", score: sec },
+            { label: "Income", score: inc },
+            { label: "Deadline", score: dead },
+          ].map(({ label, score }) => (
+            <div key={label}>
+              <span className="block text-xs mb-1" style={{ color: "#6b7280" }}>
+                {label}
+              </span>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#e5e7eb" }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${(score / maxComponent) * 100}%`,
+                      backgroundColor:
+                        score >= 20 ? "#22c55e" : score >= 12 ? "#f59e0b" : "#ef4444",
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-semibold tabular-nums" style={{ color: NAVY }}>
+                  {score}/{maxComponent}
+                </span>
+              </div>
+            </div>
+          ))}
 
-          {props.ev != null && props.ev > 0 && (
-            <span className="text-xs font-semibold text-[#c9923a]">{isFree ? `${formattedEV} — Upgrade` : formattedEV}</span>
+          {reasons.length > 0 && (
+            <div className="col-span-2 sm:col-span-4 mt-2">
+              <div className="rounded-lg px-4 py-3" style={{ backgroundColor: "#fff", border: "1px solid #ece6dd" }}>
+                <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: GOLD }}>
+                  Reasons
+                </p>
+                <ul className="text-sm space-y-1.5" style={{ color: "#374151" }}>
+                  {reasons.slice(0, isFree ? 2 : reasons.length).map((r, idx) => (
+                    <li key={idx} className="flex gap-2">
+                      <span style={{ color: GOLD }}>•</span>
+                      <span style={{ filter: isFree ? "blur(4px)" : "none" }}>{r}</span>
+                    </li>
+                  ))}
+                </ul>
+                {isFree && (
+                  <p className="text-xs mt-2" style={{ color: "#6b7280" }}>
+                    Upgrade to view full match reasons.{" "}
+                    <a href="/pricing" className="font-medium hover:underline" style={{ color: GOLD }}>
+                      View plans →
+                    </a>
+                  </p>
+                )}
+              </div>
+            </div>
           )}
         </div>
-      </div>
-
-      <div className="border-t border-[#f0ece4] mt-4 pt-3">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowWhyScore((v) => !v);
-            }}
-            className="text-xs text-[#c9923a] hover:underline font-medium"
-          >
-            Why this score? ▾
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              void addToPipeline();
-            }}
-            disabled={adding || added || pipelineLocked}
-            className="text-xs px-3 py-1.5 rounded-lg border border-[#1a1f2e] text-[#1a1f2e] font-medium hover:bg-[#1a1f2e] hover:text-white transition-colors duration-150 disabled:opacity-60"
-          >
-            {added ? "In pipeline" : pipelineLocked ? "Upgrade to add more" : adding ? "Adding…" : "+ Add to pipeline"}
-          </button>
-        </div>
-
-        {showWhyScore && isFree && matchReasons.length > 0 && (
-          <div className="mt-3 bg-[#f7f4ef] rounded-lg p-3">
-            <p className="text-xs text-[#6b7280]">
-              Upgrade to view full match reasons.
-              <a
-                href="/pricing"
-                onClick={(e) => e.stopPropagation()}
-                className="ml-2 text-[#c9923a] hover:underline font-medium"
-              >
-                View plans →
-              </a>
-            </p>
-          </div>
-        )}
-
-        {showReasons && !isFree && (
-          <div className="mt-3 bg-[#f7f4ef] rounded-lg p-3">
-            <ul className="space-y-1.5">
-              {matchReasons.map((reason, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-[#374151]">
-                  <span className="text-[#c9923a] mt-0.5 flex-shrink-0">✓</span>
-                  {reason}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
