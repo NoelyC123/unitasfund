@@ -28,6 +28,8 @@ type ScoredOpportunity = {
   ev: number | null;
   deadline: string | null;
   amount_text: string | null;
+  amount_min?: number | null;
+  amount_max?: number | null;
   source_id?: string | null;
   match_reasons?: string[];
   eligibility_certainty?: string | null;
@@ -47,6 +49,27 @@ function fitTier(score: number): { label: string; bg: string; text: string } {
   if (score >= 75) return { label: "HIGH", bg: "#f0fdf4", text: "#166534" };
   if (score >= 50) return { label: "MEDIUM", bg: "#fffbeb", text: "#92400e" };
   return { label: "LOW", bg: "#fef2f2", text: "#991b1b" };
+}
+
+function evBlockedSource(sourceId: string | null | undefined): boolean {
+  const s = String(sourceId ?? "").toLowerCase().trim();
+  return s === "tudor_trust" || s === "garfield_weston" || s === "lloyds_bank_foundation";
+}
+
+function isAwardValueUnreliable(row: ScoredOpportunity): boolean {
+  const amountText = (row.amount_text ?? "").toLowerCase();
+  if (amountText.includes("million")) return true;
+  if (amountText.includes("budget")) return true;
+  const max = row.amount_max ?? 0;
+  if (max > 1_000_000) return true;
+  return false;
+}
+
+function isInvitationOnly(row: ScoredOpportunity): boolean {
+  const s = String(row.source_id ?? "").toLowerCase().trim();
+  if (s === "tudor_trust") return true;
+  const d = String(row.deadline ?? "").toLowerCase();
+  return d.includes("invitation only");
 }
 
 function formatEv(ev: number | null): string {
@@ -73,23 +96,6 @@ function sourceAvatar(
     return { letter, bg: "#fff7ed", color: "#c2410c" };
   // Default gold for community foundations etc.
   return { letter, bg: "#fef9ee", color: "#92400e" };
-}
-
-/** Check if source is a verified/official source */
-function isVerifiedSource(sourceId: string | null): boolean {
-  const verified = [
-    "gov",
-    "find-funding",
-    "ukri",
-    "gtr",
-    "nlcf",
-    "lottery",
-    "sport-england",
-    "arts-council",
-    "grants-online",
-  ];
-  if (!sourceId) return false;
-  return verified.some((v) => sourceId.toLowerCase().includes(v));
 }
 
 function eligibilityBadge(certainty: string | null | undefined): {
@@ -132,11 +138,15 @@ export default function OpportunityRow({
   const inc = breakdown.income_score ?? 0;
   const dead = breakdown.deadline_score ?? 0;
   const maxComponent = 25;
-  const tier = fitTier(row.fit_score);
+  const invitationOnly = isInvitationOnly(row);
+  const tier = invitationOnly ? { label: "INFO", bg: "#f3f4f6", text: "#6b7280" } : fitTier(row.fit_score);
   const avatar = sourceAvatar(row.funder_name, row.source_id ?? null);
-  const verified = isVerifiedSource(row.source_id ?? null);
   const reasons = row.match_reasons ?? [];
   const elig = eligibilityBadge(row.eligibility_certainty);
+  const evBlocked = evBlockedSource(row.source_id ?? null);
+  const evUnreliable = isAwardValueUnreliable(row);
+  const evTooHigh = (row.ev ?? 0) > 100_000;
+  const evTooLow = row.ev != null && row.ev < 10;
 
   async function addToPipeline() {
     if (pipelineLocked) return;
@@ -173,6 +183,16 @@ export default function OpportunityRow({
     >
       {/* Main card content */}
       <div className="px-6 py-5">
+        {invitationOnly && (
+          <div
+            className="rounded-xl border px-4 py-3 mb-4"
+            style={{ borderColor: "#f59e0b", backgroundColor: "#fffbeb", color: "#92400e" }}
+          >
+            <p className="text-sm font-semibold">
+              This funder is invitation-only. They do not accept unsolicited applications.
+            </p>
+          </div>
+        )}
         <div className="flex items-start gap-4">
           {/* Source avatar */}
           <div
@@ -214,30 +234,6 @@ export default function OpportunityRow({
                   {elig.label}
                 </span>
               )}
-              {verified ? (
-                <span
-                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
-                  style={{ backgroundColor: "#f0fdf4", color: "#166534" }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path
-                      d="M10 3L4.5 8.5L2 6"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Verified
-                </span>
-              ) : (
-                <span
-                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
-                  style={{ backgroundColor: "#fffbeb", color: "#92400e" }}
-                >
-                  Not yet verified
-                </span>
-              )}
             </div>
           </div>
 
@@ -261,15 +257,19 @@ export default function OpportunityRow({
         </div>
 
         {/* EV row (if available) */}
-        {row.ev != null && (
+        {row.ev != null && !invitationOnly && !evBlocked && !evTooLow && (
           <div className="mt-3 ml-14 text-sm" style={{ color: "#6b7280" }}>
             Expected value:{" "}
             <span className="font-semibold" style={{ color: NAVY }}>
-              {row.ev != null && row.ev > 0 && row.ev < 50
-                ? "EV not available — award amount data insufficient."
-                : isFree
-                  ? `${formatEv(row.ev)} — Upgrade`
-                  : formatEv(row.ev)}
+              {evUnreliable
+                ? "EV not available — award amount may reflect total programme budget, not individual grant size"
+                : evTooHigh
+                  ? "EV estimate unavailable"
+                  : row.ev != null && row.ev > 0 && row.ev < 50
+                    ? "EV not available — award amount data insufficient."
+                    : isFree
+                      ? `${formatEv(row.ev)} — Upgrade`
+                      : formatEv(row.ev)}
             </span>
           </div>
         )}
@@ -307,18 +307,20 @@ export default function OpportunityRow({
               Upgrade to add more
             </a>
           )}
-          <button
-            type="button"
-            onClick={addToPipeline}
-            disabled={adding || added || pipelineLocked}
-            className="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-60"
-            style={{
-              backgroundColor: added ? "#166534" : GOLD,
-              color: "#fff",
-            }}
-          >
-            {added ? "✓ In pipeline" : adding ? "Adding…" : "+ Add to pipeline"}
-          </button>
+          {!invitationOnly && (
+            <button
+              type="button"
+              onClick={addToPipeline}
+              disabled={adding || added || pipelineLocked}
+              className="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-60"
+              style={{
+                backgroundColor: added ? "#166534" : GOLD,
+                color: "#fff",
+              }}
+            >
+              {added ? "✓ In pipeline" : adding ? "Adding…" : "+ Add to pipeline"}
+            </button>
+          )}
         </div>
       </div>
 

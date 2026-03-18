@@ -173,6 +173,8 @@ export default async function DashboardPage() {
       ev: row.ev != null ? Number(row.ev) : null,
       deadline: (opp?.deadline ?? null) as string | null,
       amount_text: (opp?.amount_text ?? null) as string | null,
+      amount_min: opp?.amount_min != null ? Number(opp.amount_min) : null,
+      amount_max: opp?.amount_max != null ? Number(opp.amount_max) : null,
       is_active: opp?.is_active !== false,
       last_checked_at: (opp?.last_checked_at ?? null) as string | null,
       match_reasons: match_reasons ?? [],

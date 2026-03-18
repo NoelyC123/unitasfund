@@ -12,6 +12,8 @@ const BODY = "#374151";
 const MUTED = "#6b7280";
 const COMPONENT_MAX = 25;
 
+const EV_BLOCKED_SOURCES = new Set(["tudor_trust", "garfield_weston", "lloyds_bank_foundation"]);
+
 const VALID_STATUSES = ["interested", "applying", "submitted", "won", "lost"] as const;
 type PipelineStatus = (typeof VALID_STATUSES)[number];
 
@@ -39,6 +41,21 @@ function fitPriorityLabel(score: number): { label: string; bg: string; text: str
   if (score >= 75) return { label: "HIGH", bg: "#dcfce7", text: "#166534" };
   if (score >= 50) return { label: "MEDIUM", bg: "#fef3c7", text: "#92400e" };
   return { label: "LOW", bg: "#fee2e2", text: "#991b1b" };
+}
+
+function isAwardValueUnreliable(amount_text: string | null, amount_max: number | null): boolean {
+  const t = (amount_text ?? "").toLowerCase();
+  if (t.includes("million")) return true;
+  if (t.includes("budget")) return true;
+  if ((amount_max ?? 0) > 1_000_000) return true;
+  return false;
+}
+
+function isInvitationOnly(source_id: string | null | undefined, deadline: string | null | undefined): boolean {
+  const s = String(source_id ?? "").toLowerCase().trim();
+  if (s === "tudor_trust") return true;
+  const d = String(deadline ?? "").toLowerCase();
+  return d.includes("invitation only");
 }
 
 function confidenceUi(level: "HIGH" | "MEDIUM" | "LOW"): { dot: string; label: string; note: string } {
@@ -193,9 +210,14 @@ export default function OpportunityDetailClient(props: {
   const [savingNotes, setSavingNotes] = useState(false);
 
   const fitScore = props.fit_score;
-  const priority = fitPriorityLabel(fitScore);
+  const invitationOnly = isInvitationOnly(props.source_id, props.deadline);
+  const priority = invitationOnly ? { label: "INFO", bg: "#f3f4f6", text: "#6b7280" } : fitPriorityLabel(fitScore);
   const deadlineUi = deadlineBadge(props.deadline);
   const elig = eligibilityBadge(props.eligibility_certainty);
+  const evBlocked = EV_BLOCKED_SOURCES.has(String(props.source_id ?? "").toLowerCase().trim());
+  const evUnreliable = isAwardValueUnreliable(props.amount_text, props.amount_max);
+  const evTooHigh = (props.ev ?? 0) > 100_000;
+  const evTooLow = props.ev != null && props.ev < 10;
 
   const confidence = useMemo(() => {
     return confidenceLevel({
@@ -343,6 +365,16 @@ export default function OpportunityDetailClient(props: {
               >
                 {props.funder_name}
               </p>
+            )}
+            {invitationOnly && (
+              <div
+                className="rounded-xl border px-4 py-3 mt-4"
+                style={{ borderColor: "#f59e0b", backgroundColor: "#fffbeb", color: "#92400e" }}
+              >
+                <p className="text-sm font-semibold">
+                  This funder is invitation-only. They do not accept unsolicited applications.
+                </p>
+              </div>
             )}
             {elig && (
               <div className="mt-4 flex items-center gap-2 flex-wrap">
@@ -618,13 +650,24 @@ export default function OpportunityDetailClient(props: {
               </div>
             </div>
 
-            {!awardDataInsufficient && props.ev != null && props.ev > 0 && (
+            {!awardDataInsufficient &&
+              !invitationOnly &&
+              !evBlocked &&
+              !evTooLow &&
+              props.ev != null &&
+              props.ev > 0 && (
               <div className="rounded-xl border p-5" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
                 <p className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: GOLD }}>
                   Estimated net EV
                 </p>
                 <p className="text-2xl font-bold tabular-nums" style={{ color: GOLD }}>
-                  {evLocked ? `${formatMoneyGBP(props.ev)} — Upgrade to see full details` : formatMoneyGBP(props.ev)}
+                  {evUnreliable
+                    ? "EV not available — award amount may reflect total programme budget, not individual grant size"
+                    : evTooHigh
+                      ? "EV estimate unavailable"
+                      : evLocked
+                        ? `${formatMoneyGBP(props.ev)} — Upgrade to see full details`
+                        : formatMoneyGBP(props.ev)}
                 </p>
                 <p
                   style={{
@@ -642,7 +685,8 @@ export default function OpportunityDetailClient(props: {
                   {bidHours != null ? ` (assumes approx. ${bidHours} hrs to bid @ £45/hr)` : ""} — see funder site for full criteria
                 </p>
 
-                <div className="mt-4 grid grid-cols-3 gap-3 text-xs" style={{ filter: evLocked ? "blur(3px)" : "none" }}>
+                {!evUnreliable && !evTooHigh && (
+                  <div className="mt-4 grid grid-cols-3 gap-3 text-xs" style={{ filter: evLocked ? "blur(3px)" : "none" }}>
                   <div className="rounded-lg border p-3" style={{ borderColor: BORDER, backgroundColor: CREAM }}>
                     <div className="uppercase tracking-wider" style={{ color: MUTED }}>
                       Win prob
@@ -671,9 +715,11 @@ export default function OpportunityDetailClient(props: {
                       {bidHours != null ? `${bidHours}h` : "—"}
                     </div>
                   </div>
-                </div>
+                  </div>
+                )}
 
-                <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: NAVY, filter: evLocked ? "blur(3px)" : "none" }}>
+                {!evUnreliable && !evTooHigh && (
+                  <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: NAVY, filter: evLocked ? "blur(3px)" : "none" }}>
                   {(() => {
                     const ui = confidenceUi(confidence);
                     return (
@@ -684,7 +730,8 @@ export default function OpportunityDetailClient(props: {
                       </>
                     );
                   })()}
-                </div>
+                  </div>
+                )}
               </div>
             )}
             {awardDataInsufficient && (
@@ -704,15 +751,24 @@ export default function OpportunityDetailClient(props: {
               </p>
 
               {!inPipeline ? (
-                <button
-                  type="button"
-                  onClick={addToPipeline}
-                  disabled={adding || pipelineLocked}
-                  className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60"
-                  style={{ backgroundColor: GOLD, color: NAVY }}
-                >
-                  {pipelineLocked ? "Upgrade to add more" : adding ? "Adding…" : "Add to pipeline"}
-                </button>
+                invitationOnly ? (
+                  <div
+                    className="rounded-lg border px-4 py-3 text-sm font-medium"
+                    style={{ borderColor: "#f59e0b", backgroundColor: "#fffbeb", color: "#92400e" }}
+                  >
+                    Invitation-only funder — you can’t apply directly.
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={addToPipeline}
+                    disabled={adding || pipelineLocked}
+                    className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-60"
+                    style={{ backgroundColor: GOLD, color: NAVY }}
+                  >
+                    {pipelineLocked ? "Upgrade to add more" : adding ? "Adding…" : "Add to pipeline"}
+                  </button>
+                )
               ) : (
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <span

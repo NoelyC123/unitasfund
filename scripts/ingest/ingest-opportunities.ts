@@ -273,7 +273,7 @@ function csvRowToOpportunity(row: CsvRow) {
   const deadline = parseDeadline(row.deadline);
   const now = new Date().toISOString();
   const cleanedDescription = stripNavigationNoise(row.description?.trim() || null);
-  const cleanedEligibility = null;
+  const cleanedEligibility: string | null = null;
   return {
     source_id: row.source_id,
     external_id: extId,
@@ -450,6 +450,46 @@ async function main() {
     console.log("Deduplicated", removed, "duplicate opportunities in this batch.");
   }
 
+  // FIX 4: Audit/validate funder-info scrapers and programme pages before upserting.
+  const FUNDER_INFO_SCRAPERS = new Set(["tudor_trust", "garfield_weston", "lloyds_bank_foundation"]);
+  const audited = deduped.map((o) => {
+    const sourceId = String(o.source_id ?? "").toLowerCase().trim();
+    if (!FUNDER_INFO_SCRAPERS.has(sourceId)) return o;
+
+    const funderName = String(o.funder_name ?? "").trim();
+    const title = String(o.title ?? "").trim();
+    const titleLooksLikeProgrammeInfo =
+      !!funderName &&
+      title.toLowerCase().startsWith(`${funderName.toLowerCase()} — `.toLowerCase());
+
+    const amountMax = typeof o.amount_max === "number" ? o.amount_max : null;
+    if (amountMax != null && amountMax > 1_000_000) {
+      o.amount_max = null as any;
+      o.amount_text = "See funder website for details" as any;
+    }
+
+    if (titleLooksLikeProgrammeInfo) {
+      const note = "[Programme information — not a specific grant]";
+      o.description = o.description ? `${note}\n\n${o.description}` : note;
+      if (o.raw && typeof o.raw === "object") {
+        o.raw = { ...(o.raw as any), is_programme_info: true } as any;
+      } else {
+        o.raw = { is_programme_info: true } as any;
+      }
+    }
+
+    // Preserve invitation-only markers in description (should already be present).
+    if (typeof o.description === "string" && o.description.includes("[Invitation-only funder]")) {
+      if (o.raw && typeof o.raw === "object") {
+        o.raw = { ...(o.raw as any), invitation_only_marker: true } as any;
+      } else {
+        o.raw = { invitation_only_marker: true } as any;
+      }
+    }
+
+    return o;
+  });
+
   const supabase = getSupabaseService();
   let runSuccess = true;
   let runErrorMessage: string | null = null;
@@ -458,7 +498,7 @@ async function main() {
   try {
     const upsertRes = await supabase
       .from("opportunities")
-      .upsert(deduped, {
+      .upsert(audited, {
         onConflict: "source_id,external_id",
         ignoreDuplicates: false,
       })
@@ -497,7 +537,7 @@ async function main() {
     process.exit(1);
   }
 
-  const ingestedCount = deduped.length;
+  const ingestedCount = audited.length;
   console.log("Ingested", ingestedCount, "opportunities.");
 
   // Data quality: mark last_checked_at for all touched rows; set provenance to 'scraped'
