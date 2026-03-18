@@ -34,26 +34,27 @@ const INCOME_BANDS = [
 
 const SECTORS = [
   "Community",
-  "Arts & Culture",
-  "Environment",
   "Health",
   "Education",
-  "Housing",
-  "Employment",
-  "Sport",
-  "Heritage",
+  "Environment",
+  "Arts",
   "Youth",
+  "Housing",
+  "Disability",
+  "Faith",
+  "Sport",
+  "Technology",
   "Other",
 ] as const;
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [name, setName] = useState("");
   const [orgType, setOrgType] = useState<string>("vcse");
   const [region, setRegion] = useState<string>("");
   const [incomeBand, setIncomeBand] = useState<string>("");
   const [sectors, setSectors] = useState<string[]>([]);
+  const [fundingGoals, setFundingGoals] = useState<string>("");
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -61,23 +62,6 @@ export default function OnboardingPage() {
     setSectors((prev) =>
       prev.includes(sector) ? prev.filter((s) => s !== sector) : [...prev, sector]
     );
-  }
-
-  function canGoNext(): boolean {
-    if (step === 1) return name.trim().length > 1 && Boolean(orgType);
-    if (step === 2) return Boolean(region) && Boolean(incomeBand);
-    return true;
-  }
-
-  function next() {
-    if (!canGoNext()) return;
-    setMessage(null);
-    setStep((s) => (s === 1 ? 2 : s === 2 ? 3 : 3));
-  }
-
-  function back() {
-    setMessage(null);
-    setStep((s) => (s === 3 ? 2 : s === 2 ? 1 : 1));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -94,7 +78,7 @@ export default function OnboardingPage() {
           location_region: region || null,
           annual_income_band: incomeBand || null,
           sectors,
-          funding_goals: null,
+          funding_goals: fundingGoals.trim() || null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -116,7 +100,8 @@ export default function OnboardingPage() {
     color: NAVY,
   };
 
-  const progressPct = step === 1 ? 33 : step === 2 ? 66 : 100;
+  const canSubmit =
+    name.trim().length >= 2 && Boolean(region) && Boolean(incomeBand) && sectors.length > 0;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -132,64 +117,46 @@ export default function OnboardingPage() {
             Let’s set up your organisation
           </h1>
           <p className="text-sm mt-2" style={{ color: "#a8b4c4" }}>
-            This takes about a minute. We’ll use it to match you to the right grants.
+            One quick form — we’ll use this to match you to the right grants.
           </p>
-
-          <div className="mt-4">
-            <div
-              className="h-2 rounded-full overflow-hidden"
-              style={{ backgroundColor: "#2d3345" }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{ width: `${progressPct}%`, backgroundColor: GOLD }}
-              />
-            </div>
-            <p className="mt-2 text-xs" style={{ color: "#cbd5e1" }}>
-              Step {step} of 3
-            </p>
-          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6">
-          {step === 1 && (
-            <div className="space-y-5">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium mb-1" style={{ color: NAVY }}>
-                  Organisation name
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#c9923a]"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: NAVY }}>
-                  Organisation type
-                </label>
-                <select
-                  value={orgType}
-                  onChange={(e) => setOrgType(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#c9923a]"
-                  style={inputStyle}
-                >
-                  {ORG_TYPES.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div className="space-y-5">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium mb-1" style={{ color: NAVY }}>
+                Organisation name
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#c9923a]"
+                style={inputStyle}
+              />
             </div>
-          )}
 
-          {step === 2 && (
-            <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: NAVY }}>
+                Organisation type
+              </label>
+              <select
+                value={orgType}
+                onChange={(e) => setOrgType(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#c9923a]"
+                style={inputStyle}
+              >
+                {ORG_TYPES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: NAVY }}>
                   Region
@@ -229,17 +196,15 @@ export default function OnboardingPage() {
                 </select>
               </div>
             </div>
-          )}
 
-          {step === 3 && (
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
                   <label className="block text-sm font-medium" style={{ color: NAVY }}>
-                    Sectors
+                    Sectors (multi-select)
                   </label>
                   <p className="text-sm mt-1" style={{ color: "#4a5568" }}>
-                    Choose the areas your work focuses on. You can select more than one.
+                    Pick the areas your work focuses on.
                   </p>
                 </div>
                 <span
@@ -279,7 +244,22 @@ export default function OnboardingPage() {
                 })}
               </div>
             </div>
-          )}
+
+            <div>
+              <label htmlFor="goals" className="block text-sm font-medium mb-1" style={{ color: NAVY }}>
+                Funding goals (optional)
+              </label>
+              <textarea
+                id="goals"
+                value={fundingGoals}
+                onChange={(e) => setFundingGoals(e.target.value.slice(0, 1000))}
+                rows={4}
+                className="w-full px-4 py-2.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#c9923a]"
+                style={inputStyle}
+                placeholder="e.g. core costs, expanding services, capital project, staffing…"
+              />
+            </div>
+          </div>
 
           {message && (
             <p className={`text-sm ${message.type === "error" ? "text-red-600" : "text-green-700"}`}>
@@ -287,37 +267,15 @@ export default function OnboardingPage() {
             </p>
           )}
 
-          <div className="flex items-center justify-between gap-3 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
-              type="button"
-              onClick={back}
-              disabled={step === 1 || loading}
-              className="px-4 py-2 rounded-lg text-sm font-semibold border disabled:opacity-50"
-              style={{ borderColor: "#ece6dd", color: NAVY, backgroundColor: "#fff" }}
+              type="submit"
+              disabled={loading || !canSubmit}
+              className="px-5 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: NAVY, color: CREAM }}
             >
-              Back
+              {loading ? "Saving…" : "Finish setup"}
             </button>
-
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={next}
-                disabled={!canGoNext() || loading}
-                className="px-5 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: GOLD, color: NAVY }}
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-5 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: NAVY, color: CREAM }}
-              >
-                {loading ? "Saving…" : "Finish setup"}
-              </button>
-            )}
           </div>
         </form>
       </div>

@@ -75,6 +75,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { error: linkError } = await serviceSupabase
+      .from("user_organisations")
+      .insert({
+        user_id: user.id,
+        organisation_id: org.id,
+        role: "owner",
+        is_default: true,
+      });
+
+    if (linkError) {
+      return NextResponse.json(
+        { error: linkError.message ?? "Failed to link user to organisation." },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(org);
   } catch {
     return NextResponse.json(

@@ -33,23 +33,7 @@ export default async function DashboardPage() {
     ?.organisations?.name ?? "Your organisation";
 
   if (!organisationId) {
-    return (
-      <div className="rounded-xl p-8" style={{ backgroundColor: "#fff", border: "1px solid #ece6dd" }}>
-        <h1 className="text-2xl font-bold mb-2" style={{ color: NAVY }}>
-          Dashboard
-        </h1>
-        <p className="mb-4" style={{ color: "#4a5568" }}>
-          You don&apos;t have an organisation yet. Complete your profile first.
-        </p>
-        <a
-          href="/onboarding"
-          className="inline-block px-4 py-2 rounded-lg font-semibold"
-          style={{ backgroundColor: GOLD, color: CREAM }}
-        >
-          Set up organisation profile
-        </a>
-      </div>
-    );
+    redirect("/onboarding");
   }
 
   const service = getSupabaseService();
