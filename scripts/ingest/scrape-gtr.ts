@@ -15,12 +15,17 @@ const REQUEST_DELAY_MS = 500;
 const SOURCE = "ukri_gtr";
 const MAX_PAGES = 500;
 
-type GtrResponse<T> = {
-  projectsBean?: {
-    projects?: T[];
+type GtrProjectSearchResult = {
+  projectComposition?: { project?: GtrProject };
+};
+
+type GtrSearchResponse = {
+  facetedSearchResultBean?: {
+    results?: GtrProjectSearchResult[];
     totalPages?: number;
+    totalResults?: number;
     page?: number;
-    size?: number;
+    fetchSize?: number;
   };
 };
 
@@ -95,33 +100,66 @@ function mapProjectToGrantAwarded(p: GtrProject) {
   };
 }
 
-async function fetchJson<T>(path: string): Promise<GtrResponse<T>> {
+async function fetchJson<T>(path: string): Promise<T> {
   const url = `${BASE_URL}${path}`;
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`GtR ${res.status} for ${path}: ${text.slice(0, 500)}`);
   }
-  return (await res.json()) as GtrResponse<T>;
+  return (await res.json()) as T;
 }
 
-async function fetchAllProjects(args: { pathBuilder: (p: number, s: number) => string; label: string }) {
+async function fetchAllProjectsViaSearch(args: { term: string; label: string }) {
   const all: GtrProject[] = [];
-  let pagesFetched = 0;
-
-  // Prefer deterministic looping when totalPages exists; otherwise loop until an empty page.
-  let totalPages: number | null = null;
   const seenIds = new Set<string>();
+  let pagesFetched = 0;
+  let totalPages: number | null = null;
+  let totalResults: number | null = null;
 
-  const first = await fetchJson<GtrProject>(args.pathBuilder(1, PAGE_SIZE));
-  totalPages =
-    typeof first.projectsBean?.totalPages === "number" && Number.isFinite(first.projectsBean.totalPages)
-      ? first.projectsBean.totalPages
-      : null;
+  const fetchWithRetries = async (page: number) => {
+    let attempt = 0;
+    let delayMs = 2000;
+    while (attempt < 5) {
+      try {
+        const q = new URLSearchParams();
+        q.set("term", args.term);
+        q.set("page", String(page));
+        q.set("fetchSize", String(PAGE_SIZE));
+        const data = await fetchJson<GtrSearchResponse>(`/search/project?${q.toString()}`);
+        return data;
+      } catch (e) {
+        attempt++;
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn(`${args.label}: page ${page} fetch failed (attempt ${attempt}/5): ${msg.slice(0, 180)}`);
+        if (attempt >= 5) break;
+        await sleep(delayMs);
+        delayMs = Math.min(30000, Math.round(delayMs * 1.8));
+      }
+    }
+    return null;
+  };
 
-  const firstList = (first.projectsBean?.projects ?? []) as GtrProject[];
+  const fetchPage = async (page: number) => {
+    const data = await fetchWithRetries(page);
+    if (!data) return { projects: [] as GtrProject[], count: 0, failed: true as const };
+    const bean = data.facetedSearchResultBean ?? {};
+    if (typeof bean.totalPages === "number") totalPages = bean.totalPages;
+    if (typeof bean.totalResults === "number") totalResults = bean.totalResults;
+    const results = (bean.results ?? []) as GtrProjectSearchResult[];
+    const projects = results
+      .map((r) => r?.projectComposition?.project)
+      .filter(Boolean) as GtrProject[];
+    return { projects, count: projects.length, failed: false as const };
+  };
+
+  const first = await fetchPage(1);
   pagesFetched++;
-  for (const p of firstList) {
+  if (first.failed) {
+    console.error(`${args.label}: failed to fetch page 1 after retries.`);
+    return { projects: [], pagesFetched, totalPages: null as number | null, totalResults: null as number | null };
+  }
+  for (const p of first.projects) {
     const id = String(p.id ?? "").trim();
     if (!id) continue;
     if (seenIds.has(id)) continue;
@@ -129,46 +167,52 @@ async function fetchAllProjects(args: { pathBuilder: (p: number, s: number) => s
     all.push(p);
   }
 
+  const cappedTotal = totalPages != null ? Math.min(totalPages, MAX_PAGES) : null;
   console.log(
-    `${args.label}: page 1${totalPages ? ` of ${Math.min(totalPages, MAX_PAGES)}` : ""}, ${firstList.length} projects`
+    `${args.label}: page 1${cappedTotal ? ` of ${cappedTotal}` : ""}, ${first.count} projects (totalResults=${totalResults ?? "?"})`
   );
 
-  if (totalPages != null) {
-    const cappedTotal = Math.min(totalPages, MAX_PAGES);
+  if (cappedTotal != null) {
     for (let page = 2; page <= cappedTotal; page++) {
       await sleep(REQUEST_DELAY_MS);
-      const data = await fetchJson<GtrProject>(args.pathBuilder(page, PAGE_SIZE));
-      const list = (data.projectsBean?.projects ?? []) as GtrProject[];
+      const { projects, failed } = await fetchPage(page);
       pagesFetched++;
-      for (const p of list) {
+      if (failed) {
+        console.warn(`${args.label}: giving up on page ${page} after retries; continuing.`);
+        continue;
+      }
+      for (const p of projects) {
         const id = String(p.id ?? "").trim();
         if (!id) continue;
         if (seenIds.has(id)) continue;
         seenIds.add(id);
         all.push(p);
       }
-      console.log(`${args.label}: page ${page} of ${cappedTotal}, ${list.length} projects`);
+      console.log(`${args.label}: page ${page} of ${cappedTotal}, totalFetched=${all.length}`);
     }
-    return { projects: all, pagesFetched, totalPages: cappedTotal };
+    return { projects: all, pagesFetched, totalPages: cappedTotal, totalResults };
   }
 
   for (let page = 2; page <= MAX_PAGES; page++) {
     await sleep(REQUEST_DELAY_MS);
-    const data = await fetchJson<GtrProject>(args.pathBuilder(page, PAGE_SIZE));
-    const list = (data.projectsBean?.projects ?? []) as GtrProject[];
+    const { projects, count, failed } = await fetchPage(page);
     pagesFetched++;
-    for (const p of list) {
+    if (failed) {
+      console.warn(`${args.label}: giving up on page ${page} after retries; continuing.`);
+      continue;
+    }
+    for (const p of projects) {
       const id = String(p.id ?? "").trim();
       if (!id) continue;
       if (seenIds.has(id)) continue;
       seenIds.add(id);
       all.push(p);
     }
-    console.log(`${args.label}: page ${page}, ${list.length} projects`);
-    if (list.length === 0) break;
+    console.log(`${args.label}: page ${page}, ${count} projects, totalFetched=${all.length}`);
+    if (count === 0) break;
   }
 
-  return { projects: all, pagesFetched, totalPages: null };
+  return { projects: all, pagesFetched, totalPages: null, totalResults };
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -181,55 +225,21 @@ async function main() {
   const supabase = getSupabaseService();
   let errors = 0;
 
-  // Quick sanity check: does the API respect page size?
-  try {
-    const probe25 = await fetchJson<GtrProject>(`/projects?p=1&s=25`);
-    const probe100 = await fetchJson<GtrProject>(`/projects?p=1&s=100`);
-    const len25 = (probe25.projectsBean?.projects ?? []).length;
-    const len100 = (probe100.projectsBean?.projects ?? []).length;
-    if (len100 < 100) {
-      console.log(`Note: GtR API returned ${len100} results for s=100 (may cap page size).`);
-    }
-    if (len25 !== len100 && len100 > len25) {
-      console.log(`GtR page size appears to work: s=25 -> ${len25}, s=100 -> ${len100}.`);
-    }
-  } catch {
-    // ignore
-  }
-
-  const primary = await fetchAllProjects({
-    label: "GtR projects",
-    pathBuilder: (p, s) => `/projects?p=${p}&s=${s}`,
-  }).catch((e) => {
-    errors++;
-    console.error("Primary fetch failed:", e instanceof Error ? e.message : String(e));
-    return { projects: [] as GtrProject[], pagesFetched: 0, totalPages: null as number | null };
-  });
-
-  await sleep(REQUEST_DELAY_MS);
-
-  const fallback = await fetchAllProjects({
-    label: "GtR search(term=grant)",
-    pathBuilder: (p, s) => `/search/project?term=grant&p=${p}&s=${s}`,
-  }).catch((e) => {
-    errors++;
-    console.error("Fallback fetch failed:", e instanceof Error ? e.message : String(e));
-    return { projects: [] as GtrProject[], pagesFetched: 0, totalPages: null as number | null };
+  const primary = await fetchAllProjectsViaSearch({
+    label: "GtR search(term=*)",
+    term: "*",
   });
 
   const byId = new Map<string, GtrProject>();
-  for (const p of [...primary.projects, ...fallback.projects]) {
+  for (const p of [...primary.projects]) {
     const id = String(p.id ?? "").trim();
     if (!id) continue;
     if (!byId.has(id)) byId.set(id, p);
   }
   const projects = [...byId.values()];
-  const totalPages =
-    (primary.totalPages ?? 0) + (fallback.totalPages ?? 0) > 0
-      ? (primary.totalPages ?? 0) + (fallback.totalPages ?? 0)
-      : null;
+  const totalPages = primary.totalPages ?? null;
   console.log(
-    `Fetched ${projects.length} unique projects (${primary.pagesFetched} primary pages, ${fallback.pagesFetched} fallback pages).`
+    `Fetched ${projects.length} unique projects (${primary.pagesFetched} pages).`
   );
 
   const rows = projects.map(mapProjectToGrantAwarded).filter(Boolean) as Array<Record<string, unknown>>;
@@ -267,10 +277,13 @@ async function main() {
 
   let inserted = 0;
   for (const batch of chunk(toInsert, 500)) {
-    const res = await supabase.from("grants_awarded").insert(batch).select("id");
+    const res = await supabase
+      .from("grants_awarded")
+      .upsert(batch, { onConflict: "funder_id", ignoreDuplicates: false })
+      .select("id");
     if (res.error) {
       errors++;
-      console.error("Insert grants_awarded error:", res.error.message);
+      console.error("Upsert grants_awarded error:", res.error.message);
     } else {
       inserted += (res.data ?? []).length;
     }
