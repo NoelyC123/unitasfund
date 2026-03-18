@@ -104,6 +104,13 @@ export const PLANS = {
 
 export type PlanId = keyof typeof PLANS;
 
+export const STRIPE_PRICE_ENV_VARS: Record<Exclude<PlanId, "free">, string> = {
+  starter: "STRIPE_STARTER_PRICE_ID",
+  pro: "STRIPE_PRO_PRICE_ID",
+  team: "STRIPE_TEAM_PRICE_ID",
+  adviser: "STRIPE_ADVISER_PRICE_ID",
+};
+
 export function getPlanFromPriceId(priceId: string): PlanId {
   for (const [key, plan] of Object.entries(PLANS)) {
     if ("priceId" in plan && plan.priceId === priceId) {

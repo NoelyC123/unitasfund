@@ -55,7 +55,7 @@ export default function SignUpPage() {
             <h1 className="text-3xl font-bold mt-3 leading-tight" style={{ color: CREAM }}>
               Find grants you can actually win — scored and ranked for your organisation
             </h1>
-            <p className="text-sm mt-4 max-w-md" style={{ color: "#a8b4c4" }}>
+            <p className="text-sm mt-4" style={{ color: "#a8b4c4" }}>
               Create a profile once, then browse opportunities with clear fit reasons and a pipeline
               to track applications.
             </p>

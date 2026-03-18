@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/server";
 import { getSupabaseService } from "@/lib/db/client";
 import { getStripe } from "@/lib/stripe/client";
-import { getPlanFromPriceId, PLANS, type PlanId } from "@/lib/stripe/plans";
+import { PLANS, STRIPE_PRICE_ENV_VARS, type PlanId } from "@/lib/stripe/plans";
 
-type Body = { priceId?: string; planId?: PlanId };
+type Body = { planId?: PlanId };
 
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
@@ -24,19 +24,33 @@ export async function POST(request: NextRequest) {
   }
 
   const planId = body?.planId;
-  const priceId = body?.priceId;
-
-  if (!priceId || typeof priceId !== "string") {
-    return NextResponse.json({ error: "priceId is required." }, { status: 400 });
+  if (!planId || typeof planId !== "string") {
+    return NextResponse.json({ error: "planId is required." }, { status: 400 });
+  }
+  if (!(planId in PLANS) || planId === "free") {
+    return NextResponse.json({ error: "Invalid planId." }, { status: 400 });
   }
 
-  const inferredPlan = (planId && planId in PLANS ? planId : getPlanFromPriceId(priceId)) as PlanId;
-  if (inferredPlan === "free" || !(inferredPlan in PLANS)) {
-    return NextResponse.json({ error: "Invalid priceId." }, { status: 400 });
-  }
-  const expectedPriceId = PLANS[inferredPlan].priceId;
-  if (!expectedPriceId || expectedPriceId !== priceId) {
-    return NextResponse.json({ error: "priceId does not match configured plan." }, { status: 400 });
+  // Debug: print env var names being used and whether they are set.
+  const envDebug = Object.entries(STRIPE_PRICE_ENV_VARS).reduce<Record<string, boolean>>(
+    (acc, [, envName]) => {
+      acc[envName] = Boolean(process.env[envName]);
+      return acc;
+    },
+    {}
+  );
+  console.log("[stripe.checkout] price env vars:", envDebug);
+
+  const expectedPriceId = PLANS[planId].priceId;
+  if (!expectedPriceId) {
+    const envName = STRIPE_PRICE_ENV_VARS[planId as Exclude<PlanId, "free">] ?? "(unknown)";
+    return NextResponse.json(
+      {
+        error: "Stripe price ID is not configured for this plan.",
+        debug: { expectedEnvVar: envName, envDebug },
+      },
+      { status: 500 }
+    );
   }
 
   const service = getSupabaseService();
@@ -82,10 +96,10 @@ export async function POST(request: NextRequest) {
     success_url: `${siteUrl}/dashboard?upgraded=true`,
     cancel_url: `${siteUrl}/pricing`,
     customer: stripeCustomerId,
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: [{ price: expectedPriceId, quantity: 1 }],
     customer_email: user.email ?? undefined,
-    metadata: { userId: user.id, planId: inferredPlan, organisation_id: organisationId ?? "" },
-    subscription_data: { metadata: { userId: user.id, planId: inferredPlan, organisation_id: organisationId ?? "" } },
+    metadata: { userId: user.id, planId, organisation_id: organisationId ?? "" },
+    subscription_data: { metadata: { userId: user.id, planId, organisation_id: organisationId ?? "" } },
   });
 
   return NextResponse.json({ url: session.url });

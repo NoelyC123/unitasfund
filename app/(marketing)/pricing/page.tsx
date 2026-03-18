@@ -75,16 +75,10 @@ export default function PricingPage() {
         return;
       }
 
-      const priceId = PLANS[planId].priceId;
-      if (!priceId) {
-        setError("Stripe price ID is not configured for this plan.");
-        return;
-      }
-
       const checkout = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId, planId }),
+        body: JSON.stringify({ planId }),
       });
       const out = await checkout.json().catch(() => null);
       if (!checkout.ok) {
