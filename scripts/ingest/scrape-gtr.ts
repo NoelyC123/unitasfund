@@ -10,7 +10,7 @@ dotenv.config();
 import { getSupabaseService } from "../../lib/db/client";
 
 const BASE_URL = "https://gtr.ukri.org/api";
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 100;
 const REQUEST_DELAY_MS = 500;
 const SOURCE = "ukri_gtr";
 const MAX_PAGES = 500;
@@ -109,41 +109,66 @@ async function fetchAllProjects(args: { pathBuilder: (p: number, s: number) => s
   const all: GtrProject[] = [];
   let pagesFetched = 0;
 
-  // GtR API sometimes omits totalPages; support both modes.
+  // Prefer deterministic looping when totalPages exists; otherwise loop until an empty page.
   let totalPages: number | null = null;
   const seenIds = new Set<string>();
-  for (let page = 1; ; page++) {
-    if (page > MAX_PAGES) {
-      console.warn(`${args.label}: hit MAX_PAGES=${MAX_PAGES}, stopping pagination to avoid runaway.`);
-      break;
+
+  const first = await fetchJson<GtrProject>(args.pathBuilder(1, PAGE_SIZE));
+  totalPages =
+    typeof first.projectsBean?.totalPages === "number" && Number.isFinite(first.projectsBean.totalPages)
+      ? first.projectsBean.totalPages
+      : null;
+
+  const firstList = (first.projectsBean?.projects ?? []) as GtrProject[];
+  pagesFetched++;
+  for (const p of firstList) {
+    const id = String(p.id ?? "").trim();
+    if (!id) continue;
+    if (seenIds.has(id)) continue;
+    seenIds.add(id);
+    all.push(p);
+  }
+
+  console.log(
+    `${args.label}: page 1${totalPages ? ` of ${Math.min(totalPages, MAX_PAGES)}` : ""}, ${firstList.length} projects`
+  );
+
+  if (totalPages != null) {
+    const cappedTotal = Math.min(totalPages, MAX_PAGES);
+    for (let page = 2; page <= cappedTotal; page++) {
+      await sleep(REQUEST_DELAY_MS);
+      const data = await fetchJson<GtrProject>(args.pathBuilder(page, PAGE_SIZE));
+      const list = (data.projectsBean?.projects ?? []) as GtrProject[];
+      pagesFetched++;
+      for (const p of list) {
+        const id = String(p.id ?? "").trim();
+        if (!id) continue;
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+        all.push(p);
+      }
+      console.log(`${args.label}: page ${page} of ${cappedTotal}, ${list.length} projects`);
     }
+    return { projects: all, pagesFetched, totalPages: cappedTotal };
+  }
+
+  for (let page = 2; page <= MAX_PAGES; page++) {
+    await sleep(REQUEST_DELAY_MS);
     const data = await fetchJson<GtrProject>(args.pathBuilder(page, PAGE_SIZE));
-    const bean = data.projectsBean ?? {};
-    const list = (bean.projects ?? []) as GtrProject[];
-    if (typeof bean.totalPages === "number") totalPages = bean.totalPages;
+    const list = (data.projectsBean?.projects ?? []) as GtrProject[];
     pagesFetched++;
-    let newOnPage = 0;
     for (const p of list) {
       const id = String(p.id ?? "").trim();
       if (!id) continue;
       if (seenIds.has(id)) continue;
       seenIds.add(id);
       all.push(p);
-      newOnPage++;
     }
-
-    console.log(
-      `${args.label}: page ${page}${totalPages ? ` of ${totalPages}` : ""}, ${list.length} projects (${newOnPage} new)`
-    );
-
+    console.log(`${args.label}: page ${page}, ${list.length} projects`);
     if (list.length === 0) break;
-    if (totalPages != null && page >= totalPages) break;
-    if (newOnPage === 0) break;
-
-    await sleep(REQUEST_DELAY_MS);
   }
 
-  return { projects: all, pagesFetched };
+  return { projects: all, pagesFetched, totalPages: null };
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -156,13 +181,29 @@ async function main() {
   const supabase = getSupabaseService();
   let errors = 0;
 
+  // Quick sanity check: does the API respect page size?
+  try {
+    const probe25 = await fetchJson<GtrProject>(`/projects?p=1&s=25`);
+    const probe100 = await fetchJson<GtrProject>(`/projects?p=1&s=100`);
+    const len25 = (probe25.projectsBean?.projects ?? []).length;
+    const len100 = (probe100.projectsBean?.projects ?? []).length;
+    if (len100 < 100) {
+      console.log(`Note: GtR API returned ${len100} results for s=100 (may cap page size).`);
+    }
+    if (len25 !== len100 && len100 > len25) {
+      console.log(`GtR page size appears to work: s=25 -> ${len25}, s=100 -> ${len100}.`);
+    }
+  } catch {
+    // ignore
+  }
+
   const primary = await fetchAllProjects({
     label: "GtR projects",
     pathBuilder: (p, s) => `/projects?p=${p}&s=${s}`,
   }).catch((e) => {
     errors++;
     console.error("Primary fetch failed:", e instanceof Error ? e.message : String(e));
-    return { projects: [] as GtrProject[], pagesFetched: 0 };
+    return { projects: [] as GtrProject[], pagesFetched: 0, totalPages: null as number | null };
   });
 
   await sleep(REQUEST_DELAY_MS);
@@ -173,7 +214,7 @@ async function main() {
   }).catch((e) => {
     errors++;
     console.error("Fallback fetch failed:", e instanceof Error ? e.message : String(e));
-    return { projects: [] as GtrProject[], pagesFetched: 0 };
+    return { projects: [] as GtrProject[], pagesFetched: 0, totalPages: null as number | null };
   });
 
   const byId = new Map<string, GtrProject>();
@@ -183,6 +224,10 @@ async function main() {
     if (!byId.has(id)) byId.set(id, p);
   }
   const projects = [...byId.values()];
+  const totalPages =
+    (primary.totalPages ?? 0) + (fallback.totalPages ?? 0) > 0
+      ? (primary.totalPages ?? 0) + (fallback.totalPages ?? 0)
+      : null;
   console.log(
     `Fetched ${projects.length} unique projects (${primary.pagesFetched} primary pages, ${fallback.pagesFetched} fallback pages).`
   );
@@ -194,7 +239,7 @@ async function main() {
     return;
   }
 
-  // De-dupe based on existing grants_awarded.funder_id for this source.
+  // Insert only truly new rows (based on existing funder_id for this source).
   const funderIds = rows.map((r) => String((r as { funder_id?: unknown }).funder_id ?? "")).filter(Boolean);
   const existing = new Set<string>();
   for (const batch of chunk(funderIds, 800)) {
@@ -220,11 +265,6 @@ async function main() {
     return !existing.has(id);
   });
 
-  if (toInsert.length === 0) {
-    console.log(`Nothing new to insert. Errors: ${errors}.`);
-    return;
-  }
-
   let inserted = 0;
   for (const batch of chunk(toInsert, 500)) {
     const res = await supabase.from("grants_awarded").insert(batch).select("id");
@@ -236,7 +276,9 @@ async function main() {
     }
   }
 
-  console.log(`Inserted ${inserted} new rows into grants_awarded. Errors: ${errors}.`);
+  console.log(
+    `Complete: ${totalPages ?? "unknown"} pages, ${projects.length} projects, ${inserted} inserted`
+  );
 }
 
 main().catch((err) => {
