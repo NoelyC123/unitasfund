@@ -638,6 +638,31 @@ async function main() {
     console.log("Skipping AI eligibility assessment (--skip-ai).");
   }
 
+  // FIX 1: Resolve score vs AI eligibility conflicts (trust-protecting caps).
+  for (const row of scoreRows) {
+    const certainty = String(row.eligibility_certainty ?? "").toLowerCase();
+    const original = row.fit_score;
+    let capped: number | null = null;
+    let note: string | null = null;
+
+    if (certainty === "unlikely_match" && original > 70) {
+      capped = 45;
+      note = "AI assessment: unlikely match — score adjusted";
+    } else if (certainty === "check_eligibility" && original > 85) {
+      capped = 65;
+      note = "AI assessment: check eligibility — score adjusted";
+    }
+
+    if (capped != null && capped < original) {
+      row.fit_score = capped;
+      if (row.fit_breakdown && typeof row.fit_breakdown === "object") {
+        row.fit_breakdown = { ...(row.fit_breakdown as Record<string, unknown>), ai_note: note };
+      } else {
+        row.fit_breakdown = { ai_note: note };
+      }
+    }
+  }
+
   // Upsert scores. If the DB schema hasn't been migrated yet to include the AI fields,
   // fall back to upserting without them (keeps ingest usable while migrations roll out).
   let scoresError: { message?: string } | null = null;

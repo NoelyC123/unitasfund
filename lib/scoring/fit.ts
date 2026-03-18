@@ -401,6 +401,84 @@ function hasRegionalBonus(opportunity: Opportunity): boolean {
 
 const RESEARCH_PENALTY_MULTIPLIER = 0.6;
 const REGIONAL_BONUS_MULTIPLIER = 1.2;
+const SECTOR_MISMATCH_PENALTY_MULTIPLIER = 0.4;
+const GOVUK_PRIVATE_OR_INDIVIDUAL_PENALTY_MULTIPLIER = 0.5;
+
+function orgHasEnvironmentSector(org: OrgProfile): boolean {
+  return org.sectors.some((s) => String(s).toLowerCase().includes("environment"));
+}
+
+function sectorMismatchPenaltyMultiplier(org: OrgProfile, opportunity: Opportunity): number {
+  const isVcseOrCic = org.org_type === "vcse" || org.org_type === "cic";
+  if (!isVcseOrCic) return 1;
+
+  const text = [
+    opportunity.title ?? "",
+    opportunity.description ?? "",
+    opportunity.eligibility_summary ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const hasAny = (patterns: RegExp[]) => patterns.some((p) => p.test(text));
+
+  // Farming / agriculture
+  if (hasAny([/\bfarming\b/i, /\bagricultur(al|e)\b/i, /\blivestock\b/i, /\bslurry\b/i])) {
+    return SECTOR_MISMATCH_PENALTY_MULTIPLIER;
+  }
+
+  // Forestry / woodland creation / tree planting (unless org is Environment sector)
+  if (
+    hasAny([/\bforestry\b/i, /\bwoodland creation\b/i, /\btree planting\b/i]) &&
+    !orgHasEnvironmentSector(org)
+  ) {
+    return SECTOR_MISMATCH_PENALTY_MULTIPLIER;
+  }
+
+  // Clinical trial / laboratory / pharmaceutical
+  if (hasAny([/\bclinical trial\b/i, /\blaborator(y|ies)\b/i, /\bpharmaceutical(s)?\b/i])) {
+    return SECTOR_MISMATCH_PENALTY_MULTIPLIER;
+  }
+
+  // Defence / military
+  if (hasAny([/\bdefence\b/i, /\bdefense\b/i, /\bmilitary\b/i, /\barmed forces\b/i])) {
+    return SECTOR_MISMATCH_PENALTY_MULTIPLIER;
+  }
+
+  // Nuclear / offshore / maritime vessel
+  if (hasAny([/\bnuclear\b/i, /\boffshore\b/i, /\bmaritime vessel\b/i, /\bvessel\b/i])) {
+    return SECTOR_MISMATCH_PENALTY_MULTIPLIER;
+  }
+
+  return 1;
+}
+
+function govukEligibilityPenaltyMultiplier(opportunity: Opportunity): number {
+  if (opportunity.source_id !== "govuk_funding") return 1;
+
+  const raw: any = (opportunity as any).raw ?? null;
+  const who = String(raw?.who_can_apply ?? raw?.who_can_apply_text ?? raw?.who_can_apply_raw ?? "")
+    .toLowerCase()
+    .trim();
+  if (!who) return 1;
+
+  const mentionsIndividual = who.includes("personal") || who.includes("individual");
+  const mentionsPrivateSector = who.includes("private sector");
+  const mentionsNonProfit =
+    who.includes("non-profit") ||
+    who.includes("nonprofit") ||
+    who.includes("not-for-profit") ||
+    who.includes("charity") ||
+    who.includes("voluntary") ||
+    who.includes("cic");
+
+  if ((mentionsIndividual || mentionsPrivateSector) && !mentionsNonProfit) {
+    return GOVUK_PRIVATE_OR_INDIVIDUAL_PENALTY_MULTIPLIER;
+  }
+
+  return 1;
+}
 
 /**
  * Compute fit score (0–100) and breakdown. Pure function.
@@ -468,7 +546,23 @@ export function scoreFit(org: OrgProfile, opportunity: Opportunity): FitScore {
     fit_score = Math.min(100, Math.round(fit_score * REGIONAL_BONUS_MULTIPLIER));
   }
 
+  const mismatchMult = sectorMismatchPenaltyMultiplier(org, opportunity);
+  if (mismatchMult !== 1) {
+    fit_score = Math.round(fit_score * mismatchMult);
+  }
+
+  const govukMult = govukEligibilityPenaltyMultiplier(opportunity);
+  if (govukMult !== 1) {
+    fit_score = Math.round(fit_score * govukMult);
+  }
+
   const match_reasons = buildMatchReasons(org, opportunity, fit_breakdown);
+  if (mismatchMult !== 1) {
+    match_reasons.unshift("Sector mismatch signals detected — score adjusted.");
+  }
+  if (govukMult !== 1) {
+    match_reasons.unshift("GOV.UK eligibility suggests individuals/private sector only — score adjusted.");
+  }
 
   return {
     fit_score,
