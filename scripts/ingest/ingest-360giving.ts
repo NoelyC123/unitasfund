@@ -36,6 +36,13 @@ const DEFAULT_FUNDER_ORG_IDS = [
   "GB-CHC-218186", // Joseph Rowntree Foundation
   "GB-CHC-210183", // Esmee Fairbairn Foundation
   "GB-CHC-1105580", // Paul Hamlyn Foundation
+  "GB-CHC-288701", // Leverhulme Trust
+  "GB-CHC-1143711", // Gatsby Charitable Foundation
+  "GB-CHC-1064476", // Sigrid Rausing Trust
+  "GB-CHC-1117744", // Oak Foundation
+  "GB-CHC-1121345", // Pears Foundation
+  "GB-CHC-1105893", // Lankelly Chase
+  "GB-CHC-1004107", // Barrow Cadbury Trust
   "GB-CHC-230260", // Garfield Weston Foundation
   "GB-CHC-258519", // Henry Smith Charity
   "GB-CHC-206360", // Wellcome Trust
@@ -48,7 +55,20 @@ const DEFAULT_FUNDER_ORG_IDS = [
   "GB-CHC-1164021", // City Bridge Foundation
   "GB-CHC-205629", // Trust for London
   "GB-CHC-1091203", // Children in Need
+  "GB-CHC-1048617", // BBC Children in Need
+  "GB-CHC-1079770", // Rank Foundation
+  "GB-CHC-1111600", // Nesta
+  "GB-CHC-326568", // Robertson Trust (Scotland) / Lloyds TSB Foundation Scotland (org id reused in request)
+  "GB-CHC-1068887", // Community Foundation Tyne & Wear
+  "GB-CHC-1075120", // Cumbria Community Foundation
+  "GB-CHC-1068077", // Community Foundation for Lancashire
+  "GB-CHC-1094446", // Two Ridings Community Foundation (Yorkshire)
+  "GB-CHC-1055133", // Heart of England Community Foundation
+  "GB-CHC-1073590", // Sussex Community Foundation
+  "GB-CHC-1110173", // Essex Community Foundation
+  "GB-CHC-1120249", // Cornwall Community Foundation
   "GB-GOR-PB188", // National Lottery Community Fund
+  "GB-GOR-PB1249", // National Lottery Heritage Fund (alt org id)
   "GB-CHC-1121739", // Sport England
   "GB-CHC-1036733", // Arts Council England
 ] as const;
