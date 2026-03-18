@@ -22,6 +22,19 @@ type FitBreakdown = {
   deadline_score?: number;
 };
 
+function eligibilityBadge(certainty: string | null | undefined): {
+  label: string;
+  bg: string;
+  text: string;
+} | null {
+  if (!certainty) return null;
+  if (certainty === "strong_match") return { label: "Strong Match ✓", bg: "#dcfce7", text: "#166534" };
+  if (certainty === "likely_eligible") return { label: "Likely Eligible", bg: "#dbeafe", text: "#1e40af" };
+  if (certainty === "check_eligibility") return { label: "Check Eligibility", bg: "#fef3c7", text: "#92400e" };
+  if (certainty === "unlikely_match") return { label: "Unlikely Match", bg: "#f3f4f6", text: "#6b7280" };
+  return null;
+}
+
 function fitPriorityLabel(score: number): { label: string; bg: string; text: string } {
   if (score >= 75) return { label: "HIGH", bg: "#dcfce7", text: "#166534" };
   if (score >= 50) return { label: "MEDIUM", bg: "#fef3c7", text: "#92400e" };
@@ -140,9 +153,12 @@ export default function OpportunityDetailClient(props: {
   fit_score: number;
   fit_breakdown: FitBreakdown;
   ev: number | null;
+  win_probability: number | null;
   bid_cost_estimate: number | null;
   confidence_score: number | null;
   match_reasons: string[];
+  eligibility_certainty: string | null;
+  eligibility_reasoning: string | null;
   initialPipeline: null | { id: string; status: PipelineStatus; notes: string | null };
   similar: Array<{
     opportunity_id: string;
@@ -162,6 +178,7 @@ export default function OpportunityDetailClient(props: {
   const fitScore = props.fit_score;
   const priority = fitPriorityLabel(fitScore);
   const deadlineUi = deadlineBadge(props.deadline);
+  const elig = eligibilityBadge(props.eligibility_certainty);
 
   const confidence = useMemo(() => {
     return confidenceLevel({
@@ -301,6 +318,21 @@ export default function OpportunityDetailClient(props: {
               >
                 {props.funder_name}
               </p>
+            )}
+            {elig && (
+              <div className="mt-4 flex items-center gap-2 flex-wrap">
+                <span
+                  className="inline-flex items-center text-xs px-2.5 py-1 rounded-full font-semibold"
+                  style={{ backgroundColor: elig.bg, color: elig.text }}
+                >
+                  {elig.label}
+                </span>
+                {props.eligibility_reasoning?.trim() && (
+                  <span className="text-sm" style={{ color: MUTED }}>
+                    {props.eligibility_reasoning}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -516,6 +548,7 @@ export default function OpportunityDetailClient(props: {
                   { label: "Award", value: amountLabel({ amount_text: props.amount_text, amount_min: props.amount_min, amount_max: props.amount_max }) },
                   { label: "Deadline", value: deadlineUi.label, badge: { bg: deadlineUi.bg, text: deadlineUi.text } },
                   { label: "Funder", value: props.funder_name ?? "—" },
+                  { label: "Source ID", value: props.opportunityId },
                 ].map((row, idx) => (
                   <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-start justify-between gap-4">
                     <div className="text-xs uppercase tracking-wider" style={{ color: "#9ca3af" }}>
@@ -561,6 +594,37 @@ export default function OpportunityDetailClient(props: {
                   win probability × award value − bid cost
                   {bidHours != null ? ` (assumes approx. ${bidHours} hrs to bid @ £45/hr)` : ""} — see funder site for full criteria
                 </p>
+
+                <div className="mt-4 grid grid-cols-3 gap-3 text-xs" style={{ filter: evLocked ? "blur(3px)" : "none" }}>
+                  <div className="rounded-lg border p-3" style={{ borderColor: BORDER, backgroundColor: CREAM }}>
+                    <div className="uppercase tracking-wider" style={{ color: MUTED }}>
+                      Win prob
+                    </div>
+                    <div className="mt-1 font-semibold tabular-nums" style={{ color: NAVY }}>
+                      {props.win_probability != null && Number.isFinite(props.win_probability)
+                        ? `${Math.round(props.win_probability * 100)}%`
+                        : "—"}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border p-3" style={{ borderColor: BORDER, backgroundColor: CREAM }}>
+                    <div className="uppercase tracking-wider" style={{ color: MUTED }}>
+                      Bid cost
+                    </div>
+                    <div className="mt-1 font-semibold tabular-nums" style={{ color: NAVY }}>
+                      {props.bid_cost_estimate != null && Number.isFinite(props.bid_cost_estimate)
+                        ? formatMoneyGBP(props.bid_cost_estimate)
+                        : "—"}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border p-3" style={{ borderColor: BORDER, backgroundColor: CREAM }}>
+                    <div className="uppercase tracking-wider" style={{ color: MUTED }}>
+                      Bid hours
+                    </div>
+                    <div className="mt-1 font-semibold tabular-nums" style={{ color: NAVY }}>
+                      {bidHours != null ? `${bidHours}h` : "—"}
+                    </div>
+                  </div>
+                </div>
 
                 <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: NAVY, filter: evLocked ? "blur(3px)" : "none" }}>
                   {(() => {

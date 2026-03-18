@@ -69,7 +69,10 @@ async function fetchScoreRowWithOptionalReasons(args: {
     fit_score,
     fit_breakdown,
     ev,
+    win_probability,
     bid_cost_estimate,
+    eligibility_certainty,
+    eligibility_reasoning,
     opportunities!inner (
       id,
       source_id,
@@ -230,7 +233,10 @@ export default async function OpportunityDetailPage({
   const fitScore = Number(scoreRow.fit_score ?? 0);
   const fitBreakdown = breakdownFromRow(scoreRow.fit_breakdown);
   const ev = scoreRow.ev != null ? Number(scoreRow.ev) : null;
+  const winProbability = scoreRow.win_probability != null ? Number(scoreRow.win_probability) : null;
   const bidCostEstimate = scoreRow.bid_cost_estimate != null ? Number(scoreRow.bid_cost_estimate) : null;
+  const eligibilityCertainty = (scoreRow.eligibility_certainty as string | null) ?? null;
+  const eligibilityReasoning = (scoreRow.eligibility_reasoning as string | null) ?? null;
   const confidenceScore =
     opp?.confidence_score != null ? Number(opp.confidence_score) : null;
 
@@ -320,9 +326,12 @@ export default async function OpportunityDetailPage({
       fit_score={fitScore}
       fit_breakdown={fitBreakdown}
       ev={ev}
+      win_probability={winProbability}
       bid_cost_estimate={bidCostEstimate}
       confidence_score={confidenceScore}
       match_reasons={reasons}
+      eligibility_certainty={eligibilityCertainty}
+      eligibility_reasoning={eligibilityReasoning}
       initialPipeline={
         existingPipeline?.id
           ? {
