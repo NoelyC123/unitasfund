@@ -280,21 +280,38 @@ async function ingestFromApi(): Promise<void> {
     if (totalMapped >= ROW_LIMIT || totalMapped >= HARD_CAP) break;
     let grantOffset = 0;
     let grantPage = 0;
+    let endpointKind: "grants_made" | "grants_received" = "grants_made";
+    let noProgressPages = 0;
+    const NO_PROGRESS_PAGES = 10; // if an API page maps 0 rows repeatedly, stop paging this org
 
     while (totalMapped < ROW_LIMIT && totalMapped < HARD_CAP) {
       grantPage++;
       const remaining = Math.min(ROW_LIMIT, HARD_CAP) - totalMapped;
       const limit = Math.min(API_LIMIT, remaining);
-      const url = `${ORG_LIST_URL}${encodeURIComponent(orgId)}/grants_made/?limit=${limit}&offset=${grantOffset}`;
+
+      const url = `${ORG_LIST_URL}${encodeURIComponent(orgId)}/${endpointKind}/?limit=${limit}&offset=${grantOffset}`;
       const res = await safeFetch(url);
       if (!res.ok) {
-        console.warn(`Funder ${orgId}: grants_made returned ${res.status}, stopping this funder.`);
+        // FIX: Some org IDs are not available via `grants_made` (404). Fall back to `grants_received`
+        // so we can still capture the real funding organisation from the grant payload.
+        if (res.status === 404 && endpointKind === "grants_made" && grantOffset === 0) {
+          endpointKind = "grants_received";
+          grantPage = 0;
+          grantOffset = 0;
+          console.warn(`Funder org ${orgId}: grants_made returned 404, falling back to grants_received.`);
+          continue;
+        }
+
+        console.warn(
+          `Funder org ${orgId}: ${endpointKind} returned ${res.status}, stopping this org.`
+        );
         break;
       }
       const data = res.json as ApiResponse;
       const results = Array.isArray(data.results) ? data.results : [];
       if (results.length === 0) break;
 
+      let mappedThisPage = 0;
       totalSeen += results.length;
       console.log(
         `  funder ${orgId}: grants page ${grantPage} (${results.length}) mapped=${totalMapped} inserted=${totalInserted}`
@@ -308,11 +325,23 @@ async function ingestFromApi(): Promise<void> {
           continue;
         }
         totalMapped++;
+        mappedThisPage++;
         batch.push(mapped);
         if (batch.length >= UPSERT_BATCH_SIZE) {
           await flushBatch();
         }
       }
+
+      if (mappedThisPage === 0) {
+        noProgressPages++;
+        if (noProgressPages >= NO_PROGRESS_PAGES) {
+          await flushBatch();
+          break;
+        }
+      } else {
+        noProgressPages = 0;
+      }
+
       await flushBatch();
       grantOffset += results.length;
       await sleep(API_DELAY_MS);
