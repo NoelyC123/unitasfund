@@ -29,11 +29,14 @@ function eligibilityBadge(certainty: string | null | undefined): {
   bg: string;
   text: string;
 } | null {
-  if (!certainty) return null;
-  if (certainty === "strong_match") return { label: "Strong Match ✓", bg: "#dcfce7", text: "#166534" };
-  if (certainty === "likely_eligible") return { label: "Likely Eligible", bg: "#dbeafe", text: "#1e40af" };
-  if (certainty === "check_eligibility") return { label: "Check Eligibility", bg: "#fef3c7", text: "#92400e" };
-  if (certainty === "unlikely_match") return { label: "Unlikely Match", bg: "#f3f4f6", text: "#6b7280" };
+  if (certainty == null) return null;
+  const c = String(certainty).trim().toLowerCase();
+  // Defensive: treat legacy/unknown values as "no AI assessment" (render nothing).
+  if (!c || c === "null" || c === "not_yet_verified" || c === "not yet verified") return null;
+  if (c === "strong_match") return { label: "Strong Match ✓", bg: "#dcfce7", text: "#166534" };
+  if (c === "likely_eligible") return { label: "Likely Eligible", bg: "#dbeafe", text: "#1e40af" };
+  if (c === "check_eligibility") return { label: "Check Eligibility", bg: "#fef3c7", text: "#92400e" };
+  if (c === "unlikely_match") return { label: "Unlikely Match", bg: "#f3f4f6", text: "#6b7280" };
   return null;
 }
 
