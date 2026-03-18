@@ -14,6 +14,7 @@ import { createHash } from "crypto";
 import { getSupabaseService } from "../../lib/db/client";
 import { scoreOpportunity } from "../../lib/scoring";
 import type { OrgProfile } from "../../lib/scoring/types";
+import { assessEligibility } from "../../lib/scoring/eligibility-ai";
 
 const SCRAPER_OUTPUT_DIR = join(
   process.env.HOME ?? process.env.USERPROFILE ?? "",
@@ -318,6 +319,16 @@ function dbOpportunityToScoring(row: {
 }
 
 async function main() {
+  const skipAi = process.argv.includes("--skip-ai");
+  const aiLimitIdx = process.argv.findIndex((a) => a === "--ai-limit");
+  const aiLimitRaw = aiLimitIdx >= 0 ? process.argv[aiLimitIdx + 1] : null;
+  const aiLimitParsed = aiLimitRaw ? Number(aiLimitRaw) : NaN;
+  const aiLimit = Number.isFinite(aiLimitParsed) && aiLimitParsed > 0 ? Math.floor(aiLimitParsed) : 50;
+
+  async function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   const runStartedAt = new Date().toISOString();
   const csvPath = findLatestCsv(SCRAPER_OUTPUT_DIR);
   if (!csvPath) {
@@ -550,6 +561,8 @@ async function main() {
     ev: number;
     win_probability: number;
     bid_cost_estimate: number;
+    eligibility_certainty?: string | null;
+    eligibility_reasoning?: string | null;
     scoring_version: string;
     computed_at: string;
   }[] = [];
@@ -557,6 +570,11 @@ async function main() {
 
   if (profiles.length > 0) {
     console.log("First org profile (for scoring):", JSON.stringify(profiles[0], null, 2));
+  }
+
+  const oppById = new Map<string, ReturnType<typeof dbOpportunityToScoring>>();
+  for (const opp of oppsForScoring) {
+    oppById.set(String(opp.id), dbOpportunityToScoring(opp));
   }
 
   for (const org of profiles) {
@@ -571,21 +589,86 @@ async function main() {
         ev: result.ev.expected_value,
         win_probability: result.ev.win_probability,
         bid_cost_estimate: result.ev.bid_cost_estimate,
+        eligibility_certainty: null,
+        eligibility_reasoning: null,
         scoring_version: "v1",
         computed_at: new Date().toISOString(),
       });
     }
   }
 
-  const { error: scoresError } = await supabase
-    .from("scores")
-    .upsert(scoreRows, {
+  if (!skipAi) {
+    console.log(`Running AI eligibility assessment (top ${aiLimit} per org)…`);
+    const keyToRow = new Map<string, (typeof scoreRows)[number]>();
+    for (const r of scoreRows) {
+      keyToRow.set(`${r.organisation_id}:${r.opportunity_id}`, r);
+    }
+
+    for (const org of profiles) {
+      const rowsForOrg = scoreRows
+        .filter((r) => r.organisation_id === org.id)
+        .sort((a, b) => b.fit_score - a.fit_score)
+        .slice(0, aiLimit);
+
+      for (let i = 0; i < rowsForOrg.length; i++) {
+        const r = rowsForOrg[i];
+        const opp = oppById.get(String(r.opportunity_id));
+        if (!opp) continue;
+        try {
+          const res = await assessEligibility(org, opp);
+          const target = keyToRow.get(`${r.organisation_id}:${r.opportunity_id}`);
+          if (target) {
+            target.eligibility_certainty = res.certainty;
+            target.eligibility_reasoning = res.reasoning;
+          }
+          console.log(
+            `AI [${org.name}] ${i + 1}/${rowsForOrg.length}: ${res.certainty} – ${opp.title}`
+          );
+        } catch {
+          const target = keyToRow.get(`${r.organisation_id}:${r.opportunity_id}`);
+          if (target) {
+            target.eligibility_certainty = "check_eligibility";
+            target.eligibility_reasoning = "Unable to assess automatically.";
+          }
+        }
+        await sleep(200);
+      }
+    }
+  } else {
+    console.log("Skipping AI eligibility assessment (--skip-ai).");
+  }
+
+  // Upsert scores. If the DB schema hasn't been migrated yet to include the AI fields,
+  // fall back to upserting without them (keeps ingest usable while migrations roll out).
+  let scoresError: { message?: string } | null = null;
+  {
+    const res = await supabase.from("scores").upsert(scoreRows, {
       onConflict: "organisation_id,opportunity_id",
       ignoreDuplicates: false,
     });
+    scoresError = res.error as { message?: string } | null;
+  }
   if (scoresError) {
-    console.error("Upsert scores error:", scoresError.message);
-    process.exit(1);
+    const msg = String(scoresError.message ?? "");
+    const missingAiCols =
+      msg.includes("eligibility_certainty") || msg.includes("eligibility_reasoning");
+    if (missingAiCols) {
+      console.warn(
+        "Scores table missing AI columns; retrying upsert without eligibility fields."
+      );
+      const stripped = scoreRows.map(({ eligibility_certainty, eligibility_reasoning, ...rest }) => rest);
+      const res2 = await supabase.from("scores").upsert(stripped, {
+        onConflict: "organisation_id,opportunity_id",
+        ignoreDuplicates: false,
+      });
+      if (res2.error) {
+        console.error("Upsert scores error:", res2.error.message);
+        process.exit(1);
+      }
+    } else {
+      console.error("Upsert scores error:", msg);
+      process.exit(1);
+    }
   }
   const scoresCount = scoreRows.length;
   console.log("Computed", scoresCount, "scores.");

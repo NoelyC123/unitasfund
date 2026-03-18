@@ -29,6 +29,7 @@ type ScoredOpportunity = {
   amount_text: string | null;
   source_id?: string | null;
   match_reasons?: string[];
+  eligibility_certainty?: string | null;
 };
 
 function formatDeadline(d: string | null): string {
@@ -90,6 +91,19 @@ function isVerifiedSource(sourceId: string | null): boolean {
   return verified.some((v) => sourceId.toLowerCase().includes(v));
 }
 
+function eligibilityBadge(certainty: string | null | undefined): {
+  label: string;
+  bg: string;
+  text: string;
+} | null {
+  if (!certainty) return null;
+  if (certainty === "strong_match") return { label: "Strong Match ✓", bg: "#dcfce7", text: "#166534" };
+  if (certainty === "likely_eligible") return { label: "Likely Eligible", bg: "#dbeafe", text: "#1e40af" };
+  if (certainty === "check_eligibility") return { label: "Check Eligibility", bg: "#fef3c7", text: "#92400e" };
+  if (certainty === "unlikely_match") return { label: "Unlikely Match", bg: "#f3f4f6", text: "#6b7280" };
+  return null;
+}
+
 export default function OpportunityRow({
   row,
   plan,
@@ -121,6 +135,7 @@ export default function OpportunityRow({
   const avatar = sourceAvatar(row.funder_name, row.source_id ?? null);
   const verified = isVerifiedSource(row.source_id ?? null);
   const reasons = row.match_reasons ?? [];
+  const elig = eligibilityBadge(row.eligibility_certainty);
 
   async function addToPipeline() {
     if (pipelineLocked) return;
@@ -183,6 +198,14 @@ export default function OpportunityRow({
               {row.funder_name && (
                 <span className="text-sm" style={{ color: "#4a5568" }}>
                   {row.funder_name}
+                </span>
+              )}
+              {elig && (
+                <span
+                  className="inline-flex items-center text-xs px-2 py-0.5 rounded-full font-semibold"
+                  style={{ backgroundColor: elig.bg, color: elig.text }}
+                >
+                  {elig.label}
                 </span>
               )}
               {verified ? (

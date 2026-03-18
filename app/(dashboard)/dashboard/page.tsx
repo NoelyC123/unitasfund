@@ -101,6 +101,7 @@ export default async function DashboardPage() {
       fit_score,
       fit_breakdown,
       ev,
+      eligibility_certainty,
       opportunities!inner (
         id,
         source_id,
@@ -190,6 +191,7 @@ export default async function DashboardPage() {
       is_active: opp?.is_active !== false,
       last_checked_at: (opp?.last_checked_at ?? null) as string | null,
       match_reasons: match_reasons ?? [],
+      eligibility_certainty: (row.eligibility_certainty ?? null) as string | null,
     };
   });
 
