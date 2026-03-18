@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PlanId } from "@/lib/stripe/plans";
 import { pipelineLimitReached } from "@/lib/stripe/gate";
@@ -196,9 +197,14 @@ export default function OpportunityRow({
             </div>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               {row.funder_name && (
-                <span className="text-sm" style={{ color: "#4a5568" }}>
+                <Link
+                  href={`/funder/${encodeURIComponent(row.funder_name)}`}
+                  className="text-sm hover:underline"
+                  style={{ color: "#4a5568" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {row.funder_name}
-                </span>
+                </Link>
               )}
               {elig && (
                 <span
