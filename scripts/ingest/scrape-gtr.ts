@@ -13,6 +13,7 @@ const BASE_URL = "https://gtr.ukri.org/api";
 const PAGE_SIZE = 50;
 const REQUEST_DELAY_MS = 500;
 const SOURCE = "ukri_gtr";
+const MAX_PAGES = 500;
 
 type GtrResponse<T> = {
   projectsBean?: {
@@ -110,20 +111,34 @@ async function fetchAllProjects(args: { pathBuilder: (p: number, s: number) => s
 
   // GtR API sometimes omits totalPages; support both modes.
   let totalPages: number | null = null;
+  const seenIds = new Set<string>();
   for (let page = 1; ; page++) {
+    if (page > MAX_PAGES) {
+      console.warn(`${args.label}: hit MAX_PAGES=${MAX_PAGES}, stopping pagination to avoid runaway.`);
+      break;
+    }
     const data = await fetchJson<GtrProject>(args.pathBuilder(page, PAGE_SIZE));
     const bean = data.projectsBean ?? {};
     const list = (bean.projects ?? []) as GtrProject[];
     if (typeof bean.totalPages === "number") totalPages = bean.totalPages;
     pagesFetched++;
-    all.push(...list);
+    let newOnPage = 0;
+    for (const p of list) {
+      const id = String(p.id ?? "").trim();
+      if (!id) continue;
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+      all.push(p);
+      newOnPage++;
+    }
 
     console.log(
-      `${args.label}: page ${page}${totalPages ? ` of ${totalPages}` : ""}, ${list.length} projects`
+      `${args.label}: page ${page}${totalPages ? ` of ${totalPages}` : ""}, ${list.length} projects (${newOnPage} new)`
     );
 
     if (list.length === 0) break;
     if (totalPages != null && page >= totalPages) break;
+    if (newOnPage === 0) break;
 
     await sleep(REQUEST_DELAY_MS);
   }
