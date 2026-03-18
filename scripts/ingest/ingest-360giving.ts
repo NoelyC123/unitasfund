@@ -171,9 +171,17 @@ async function fetchJsonWithRetries(url: string): Promise<ApiResponse> {
     "User-Agent": "UnitasFund/360GivingIngest (contact: support@unitasconnect.org)",
     Accept: "application/json",
   };
+  // Increase connect timeout for slow networks.
+  const ac = new AbortController();
   let delay = 1000;
   for (let attempt = 1; attempt <= 6; attempt++) {
-    const res = await fetch(url, { headers });
+    const timeout = setTimeout(() => ac.abort(), 30_000);
+    let res: Response;
+    try {
+      res = await fetch(url, { headers, signal: ac.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (res.ok) return (await res.json()) as ApiResponse;
     const text = await res.text().catch(() => "");
     if (res.status === 429 || res.status >= 500) {

@@ -136,12 +136,29 @@ function roundToNearest5(n: number): number {
   return Math.round(n / 5) * 5;
 }
 
+function sourceLabel(sourceId: string | null | undefined): string {
+  const s = (sourceId ?? "").toLowerCase().trim();
+  if (!s) return "Unknown";
+  if (s === "nlcf") return "National Lottery Community Fund";
+  if (s === "govuk_funding") return "GOV.UK Find a Grant";
+  if (s === "cumbria_foundation") return "Cumbria Community Foundation";
+  if (s === "lancaster_cvs") return "Lancaster CVS";
+  if (s === "arts_council") return "Arts Council England";
+  if (s === "sport_england") return "Sport England";
+  if (s === "grants_online") return "Grants Online";
+  if (s === "tudor_trust") return "Tudor Trust";
+  if (s === "garfield_weston") return "Garfield Weston Foundation";
+  if (s === "lloyds_bank_foundation") return "Lloyds Bank Foundation";
+  return sourceId ?? "Unknown";
+}
+
 export default function OpportunityDetailClient(props: {
   organisationId: string;
   opportunityId: string;
   plan: PlanId;
   pipelineCount: number;
   title: string;
+  source_id?: string | null;
   funder_name: string | null;
   url: string | null;
   description: string | null;
@@ -228,6 +245,14 @@ export default function OpportunityDetailClient(props: {
     if (!isFree) return false;
     return pipelineLimitReached({ plan: props.plan, pipelineCount: props.pipelineCount });
   }, [isFree, props.plan, props.pipelineCount]);
+
+  const descriptionTooShort = !props.description || props.description.trim().length < 20;
+  const eligibilityTooShort = !props.eligibility_summary || props.eligibility_summary.trim().length < 20;
+  const awardDataInsufficient =
+    props.amount_min != null &&
+    Number.isFinite(props.amount_min) &&
+    Number(props.amount_min) > 0 &&
+    Number(props.amount_min) < 50;
 
   async function addToPipeline() {
     if (pipelineLocked) return;
@@ -334,17 +359,28 @@ export default function OpportunityDetailClient(props: {
                 )}
               </div>
             )}
+            <p
+              style={{
+                marginTop: "10px",
+                fontSize: "12px",
+                color: "#6b7280",
+                fontStyle: "italic",
+                lineHeight: 1.5,
+              }}
+            >
+              Scores are estimated based on available data and may not reflect all eligibility criteria. Always check the funder's website before applying.
+            </p>
           </div>
 
           <SectionCard title="Description">
-            {props.description?.trim() ? (
+            {!descriptionTooShort ? (
               <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: BODY }}>
                 {props.description}
               </p>
             ) : (
               <div className="rounded-lg border p-4" style={{ borderColor: BORDER, backgroundColor: CREAM }}>
                 <p className="text-sm font-semibold" style={{ color: NAVY }}>
-                  Full details available at the funder&apos;s website.
+                  No detailed description available. Visit the funder's website for full eligibility and application details.
                 </p>
                 {props.url && (
                   <a
@@ -363,9 +399,9 @@ export default function OpportunityDetailClient(props: {
 
           <SectionCard title="Who can apply">
             <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: BODY }}>
-              {props.eligibility_summary?.trim()
+              {!eligibilityTooShort
                 ? props.eligibility_summary
-                : "Check the funder’s website for eligibility criteria."}
+                : "Eligibility criteria not available in our data. Please check the funder's website directly."}
             </p>
           </SectionCard>
 
@@ -548,7 +584,7 @@ export default function OpportunityDetailClient(props: {
                   { label: "Award", value: amountLabel({ amount_text: props.amount_text, amount_min: props.amount_min, amount_max: props.amount_max }) },
                   { label: "Deadline", value: deadlineUi.label, badge: { bg: deadlineUi.bg, text: deadlineUi.text } },
                   { label: "Funder", value: props.funder_name ?? "—" },
-                  { label: "Source ID", value: props.opportunityId },
+                  { label: "Source", value: sourceLabel(props.source_id) },
                 ].map((row, idx) => (
                   <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-start justify-between gap-4">
                     <div className="text-xs uppercase tracking-wider" style={{ color: "#9ca3af" }}>
@@ -567,7 +603,7 @@ export default function OpportunityDetailClient(props: {
                 ))}
                 <div className="py-3 flex items-start justify-between gap-4">
                   <div className="text-xs uppercase tracking-wider" style={{ color: "#9ca3af" }}>
-                    Source
+                    Listing
                   </div>
                   {props.url ? (
                     <a href={props.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold hover:underline" style={{ color: GOLD }}>
@@ -582,13 +618,24 @@ export default function OpportunityDetailClient(props: {
               </div>
             </div>
 
-            {props.ev != null && props.ev > 0 && (
+            {!awardDataInsufficient && props.ev != null && props.ev > 0 && (
               <div className="rounded-xl border p-5" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
                 <p className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: GOLD }}>
                   Estimated net EV
                 </p>
                 <p className="text-2xl font-bold tabular-nums" style={{ color: GOLD }}>
                   {evLocked ? `${formatMoneyGBP(props.ev)} — Upgrade to see full details` : formatMoneyGBP(props.ev)}
+                </p>
+                <p
+                  style={{
+                    marginTop: "6px",
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    fontStyle: "italic",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Expected value is an estimate based on historical award patterns. Not a guarantee of funding.
                 </p>
                 <p className="text-xs mt-2" style={{ color: MUTED }}>
                   win probability × award value − bid cost
@@ -638,6 +685,16 @@ export default function OpportunityDetailClient(props: {
                     );
                   })()}
                 </div>
+              </div>
+            )}
+            {awardDataInsufficient && (
+              <div className="rounded-xl border p-5" style={{ backgroundColor: "#ffffff", borderColor: BORDER }}>
+                <p className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: GOLD }}>
+                  Expected value
+                </p>
+                <p className="text-sm" style={{ color: MUTED }}>
+                  EV not available — award amount data insufficient.
+                </p>
               </div>
             )}
 

@@ -108,6 +108,7 @@ export default async function DashboardPage() {
     )
     .eq("organisation_id", organisationId)
     .eq("opportunities.is_active", true)
+    .or(`deadline.is.null,deadline.gte.${new Date().toISOString().split("T")[0]}`, { foreignTable: "opportunities" })
     .order("fit_score", { ascending: false })
     .limit(200);
 

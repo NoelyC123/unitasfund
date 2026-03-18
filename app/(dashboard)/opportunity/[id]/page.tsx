@@ -315,6 +315,7 @@ export default async function OpportunityDetailPage({
       plan={((subRow as any)?.plan as PlanId) ?? "free"}
       pipelineCount={pipelineCount ?? 0}
       title={String(opp?.title ?? "Untitled")}
+      source_id={(opp?.source_id as string | null) ?? null}
       funder_name={(opp?.funder_name as string | null) ?? null}
       url={(opp?.url as string | null) ?? null}
       description={(opp?.description as string | null) ?? null}

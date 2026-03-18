@@ -265,7 +265,11 @@ export default function OpportunityRow({
           <div className="mt-3 ml-14 text-sm" style={{ color: "#6b7280" }}>
             Expected value:{" "}
             <span className="font-semibold" style={{ color: NAVY }}>
-              {isFree ? `${formatEv(row.ev)} — Upgrade` : formatEv(row.ev)}
+              {row.ev != null && row.ev > 0 && row.ev < 50
+                ? "EV not available — award amount data insufficient."
+                : isFree
+                  ? `${formatEv(row.ev)} — Upgrade`
+                  : formatEv(row.ev)}
             </span>
           </div>
         )}

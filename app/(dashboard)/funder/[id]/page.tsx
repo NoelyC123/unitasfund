@@ -113,7 +113,7 @@ export default async function FunderPage({ params }: { params: Promise<{ id: str
         </h1>
         <p className="text-sm mt-2" style={{ color: MUTED }}>
           {totalCount === 0
-            ? "No award data found for this funder yet."
+            ? "We don't have historical award data for this funder yet. Data is updated weekly from 360Giving and other sources."
             : `Award data across ${totalCount.toLocaleString("en-GB")} grants.`}
         </p>
 

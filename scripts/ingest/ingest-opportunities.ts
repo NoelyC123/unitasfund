@@ -31,6 +31,45 @@ interface CsvRow {
   description: string;
 }
 
+function stripNavigationNoise(text: string | null | undefined): string | null {
+  if (!text) return null;
+  let t = String(text).replace(/\s+/g, " ").trim();
+  if (!t) return null;
+
+  const patterns: RegExp[] = [
+    /\bapply now\b/gi,
+    /\bgive now\b/gi,
+    /\bfundraising ideas\b/gi,
+    /\bcase studies\b/gi,
+    /\blatest news\b/gi,
+    /\bgrant stories\b/gi,
+    /\bvideos\b/gi,
+    /\bnewsletters\b/gi,
+    /\bpublications\b/gi,
+    /\bblog events\b/gi,
+    /\bmedia\b/gi,
+    /\bopportunities and challenges\b/gi,
+  ];
+  for (const p of patterns) t = t.replace(p, " ");
+
+  // Remove sequences of 5+ capitalised words (typical nav/menu trails)
+  // e.g. "Give Now Fundraising Ideas Apply Now Case Studies"
+  t = t.replace(/\b(?:[A-Z][a-z]+(?:\s+|$)){5,}/g, " ");
+
+  t = t.replace(/\s+/g, " ").trim();
+  return t || null;
+}
+
+function meaningfulWordCount(text: string | null | undefined): number {
+  if (!text) return 0;
+  const words = String(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 3);
+  return words.length;
+}
+
 /** Known navigation / admin terms to exclude from ingest (case-insensitive match). */
 const NAVIGATION_TERMS = new Set([
   "england",
@@ -233,18 +272,20 @@ function csvRowToOpportunity(row: CsvRow) {
   const { min: amount_min, max: amount_max } = parseAmount(row.amount);
   const deadline = parseDeadline(row.deadline);
   const now = new Date().toISOString();
+  const cleanedDescription = stripNavigationNoise(row.description?.trim() || null);
+  const cleanedEligibility = null;
   return {
     source_id: row.source_id,
     external_id: extId,
     title: row.title?.trim() || "Untitled",
-    description: row.description?.trim() || null,
+    description: cleanedDescription,
     url: row.url?.trim() || null,
     funder_name: row.source_name?.trim() || null,
     amount_min,
     amount_max,
     amount_text: row.amount?.trim() || null,
     deadline,
-    eligibility_summary: null,
+    eligibility_summary: cleanedEligibility,
     location_filters: {},
     sector_filters: {},
     income_bands: {},
@@ -310,8 +351,13 @@ function dbOpportunityToScoring(row: {
     location_filters: (row.location_filters ?? {}) as Record<string, unknown>,
     sector_filters: (row.sector_filters ?? {}) as Record<string, unknown>,
     income_bands: (row.income_bands ?? {}) as Record<string, unknown>,
-    description: row.description ?? null,
-    eligibility_summary: row.eligibility_summary ?? null,
+    description: stripNavigationNoise(row.description ?? null),
+    eligibility_summary: (() => {
+      const cleaned = stripNavigationNoise(row.eligibility_summary ?? null);
+      // If eligibility is mostly nav noise after cleaning, treat as missing.
+      if (!cleaned) return null;
+      return meaningfulWordCount(cleaned) < 20 ? null : cleaned;
+    })(),
     funder_name: row.funder_name ?? null,
     // scoring types use undefined for optional fields (not null)
     source_id: row.source_id ?? undefined,

@@ -101,7 +101,24 @@ export default function DashboardClient({
       return b.fit_score - a.fit_score;
     });
 
-    return out;
+    // ISSUE 7: Deduplicate identical titles (case-insensitive), keep higher fit_score.
+    const bestByTitle = new Map<string, Row>();
+    for (const r of out) {
+      const key = (r.title ?? "").trim().toLowerCase();
+      if (!key) continue;
+      const prev = bestByTitle.get(key);
+      if (!prev || (r.fit_score ?? 0) > (prev.fit_score ?? 0)) {
+        bestByTitle.set(key, r);
+      }
+    }
+    const deduped = Array.from(bestByTitle.values());
+    deduped.sort((a, b) => {
+      if (sortKey === "DEADLINE") return deadlineValue(a.deadline) - deadlineValue(b.deadline);
+      if (sortKey === "EV") return (b.ev ?? -Infinity) - (a.ev ?? -Infinity);
+      return b.fit_score - a.fit_score;
+    });
+
+    return deduped;
   }, [rows, band, funder, sortKey, query]);
 
   const topScore = filteredSorted[0]?.fit_score ?? 0;
