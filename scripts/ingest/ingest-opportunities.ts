@@ -378,6 +378,21 @@ async function main() {
     console.log("Excluded", pastDeadlineCount, "opportunities with deadline in the past.");
   }
 
+  // Deduplicate within this ingest batch to avoid Postgres
+  // "ON CONFLICT DO UPDATE command cannot affect row a second time".
+  const seen = new Set<string>();
+  const beforeDeduped = opportunities.length;
+  const deduped = opportunities.filter((o) => {
+    const key = `${o.source_id}:${o.external_id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const removed = beforeDeduped - deduped.length;
+  if (removed > 0) {
+    console.log("Deduplicated", removed, "duplicate opportunities in this batch.");
+  }
+
   const supabase = getSupabaseService();
   let runSuccess = true;
   let runErrorMessage: string | null = null;
@@ -386,7 +401,7 @@ async function main() {
   try {
     const upsertRes = await supabase
       .from("opportunities")
-      .upsert(opportunities, {
+      .upsert(deduped, {
         onConflict: "source_id,external_id",
         ignoreDuplicates: false,
       })
@@ -425,7 +440,7 @@ async function main() {
     process.exit(1);
   }
 
-  const ingestedCount = opportunities.length;
+  const ingestedCount = deduped.length;
   console.log("Ingested", ingestedCount, "opportunities.");
 
   // Data quality: mark last_checked_at for all touched rows; set provenance to 'scraped'
@@ -445,10 +460,10 @@ async function main() {
   }
 
   const currentKeys = new Set<string>();
-  for (const o of opportunities) {
+  for (const o of deduped) {
     currentKeys.add(`${o.source_id}:${o.external_id}`);
   }
-  const sourceIds = Array.from(new Set(opportunities.map((o) => o.source_id)));
+  const sourceIds = Array.from(new Set(deduped.map((o) => o.source_id)));
   if (sourceIds.length > 0) {
     const { data: existing, error: fetchExistingError } = await supabase
       .from("opportunities")
