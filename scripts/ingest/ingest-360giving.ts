@@ -32,6 +32,25 @@ const DEFAULT_FUNDER_ORG_IDS = [
   "GB-GOR-DA1020", // Scottish Government (example in 360Giving docs; high volume)
   "GB-GOR-DA1035", // Scottish Enterprise (often present)
   "GB-GOV-UKRI", // if present
+  "GB-CHC-1164883", // 360Giving
+  "GB-CHC-218186", // Joseph Rowntree Foundation
+  "GB-CHC-210183", // Esmee Fairbairn Foundation
+  "GB-CHC-1105580", // Paul Hamlyn Foundation
+  "GB-CHC-230260", // Garfield Weston Foundation
+  "GB-CHC-258519", // Henry Smith Charity
+  "GB-CHC-206360", // Wellcome Trust
+  "GB-CHC-327114", // Lloyds Bank Foundation
+  "GB-CHC-1190049", // National Lottery Heritage Fund
+  "GB-CHC-1121600", // Power to Change
+  "GB-CHC-1159982", // Wolfson Foundation
+  "GB-CHC-1093844", // Comic Relief
+  "GB-CHC-274206", // John Lyon's Charity
+  "GB-CHC-1164021", // City Bridge Foundation
+  "GB-CHC-205629", // Trust for London
+  "GB-CHC-1091203", // Children in Need
+  "GB-GOR-PB188", // National Lottery Community Fund
+  "GB-CHC-1121739", // Sport England
+  "GB-CHC-1036733", // Arts Council England
 ] as const;
 
 const args = process.argv.slice(2);
