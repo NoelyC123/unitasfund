@@ -32,15 +32,29 @@ export default async function FunderPage({ params }: { params: Promise<{ id: str
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const trimmed = funderName.trim();
+  const withoutLeadingThe = trimmed.replace(/^The\s+/i, "");
+  const withLeadingThe = withoutLeadingThe === trimmed ? `The ${trimmed}` : `The ${withoutLeadingThe}`;
+
+  // Search terms to handle small naming variations across sources.
+  const searchTerms = Array.from(
+    new Set([trimmed, withoutLeadingThe, withLeadingThe].map((s) => s.trim()).filter(Boolean))
+  );
+
+  const orQuery = searchTerms.map((t) => `funder_name.ilike.%${t}%`).join(",");
+
   const { data, error } = await supabase
     .from("grants_awarded")
     .select("funder_name, recipient_name, amount_awarded, award_date")
-    .eq("funder_name", funderName)
+    .or(orQuery)
     .order("award_date", { ascending: true });
 
   if (error) {
     return (
       <div className="rounded-xl border p-8" style={{ backgroundColor: "#fff", borderColor: BORDER }}>
+        <a href="/dashboard" className="text-sm font-semibold hover:underline" style={{ color: GOLD }}>
+          ← Dashboard
+        </a>
         <h1 style={{ fontFamily: "var(--font-heading, Georgia, serif)", fontSize: "28px", fontWeight: 700, color: NAVY }}>
           {funderName}
         </h1>
@@ -90,12 +104,33 @@ export default async function FunderPage({ params }: { params: Promise<{ id: str
     .sort((a, b) => a[0] - b[0])
     .map(([year, v]) => ({ year, ...v }));
 
+  // Debug: if we matched nothing, log example funder_name values present in the DB.
+  if (totalCount === 0) {
+    try {
+      const { data: distinctRows } = await supabase
+        .from("grants_awarded")
+        .select("funder_name")
+        .order("funder_name", { ascending: true })
+        .limit(50);
+      const names = Array.from(new Set((distinctRows ?? []).map((r: any) => String(r.funder_name ?? "").trim()).filter(Boolean)));
+      console.log(
+        `[FunderPage] No grants matched for "${funderName}". Example funder_name values (up to 50 distinct):`,
+        names.slice(0, 50)
+      );
+    } catch (e) {
+      console.log("[FunderPage] Debug query for distinct funder_name failed:", e);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div
         className="rounded-2xl border p-8"
         style={{ backgroundColor: "#fff", borderColor: BORDER }}
       >
+        <a href="/dashboard" className="text-sm font-semibold hover:underline" style={{ color: GOLD }}>
+          ← Dashboard
+        </a>
         <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: GOLD }}>
           Funder profile
         </p>
