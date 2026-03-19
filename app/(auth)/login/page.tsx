@@ -32,7 +32,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="rounded-xl p-8 shadow-lg"
+      className="max-w-md mx-auto mt-10 rounded-xl p-8 shadow-lg"
       style={{ backgroundColor: "#ffffff", border: "1px solid #ece6dd" }}
     >
       <h1 className="text-2xl font-bold mb-2" style={{ color: "#1a1f2e" }}>

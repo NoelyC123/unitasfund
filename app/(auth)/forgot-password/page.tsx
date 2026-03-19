@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: "https://unitasfund.vercel.app/reset-password",
+        redirectTo: `${typeof window !== "undefined" ? window.location.origin : "https://unitasfund.vercel.app"}/auth/callback?next=/reset-password`,
       });
       if (error) {
         setMessage({ type: "error", text: error.message });

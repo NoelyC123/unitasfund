@@ -35,8 +35,8 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-2rem)]" style={{ backgroundColor: CREAM }}>
-      <div className="max-w-5xl mx-auto px-6 py-10">
+    <div className="min-h-screen" style={{ backgroundColor: CREAM }}>
+      <div className="max-w-7xl mx-auto px-6 py-10">
         <Link href="/" className="inline-flex items-center gap-2 mb-8">
           <span className="font-semibold text-lg" style={{ color: NAVY }}>
             Unitas<span style={{ color: GOLD }}>Fund</span>
@@ -44,7 +44,7 @@ export default function SignUpPage() {
         </Link>
 
         <div
-          className="grid grid-cols-1 lg:grid-cols-2 rounded-2xl border overflow-hidden"
+          className="w-full grid grid-cols-1 lg:grid-cols-2 rounded-2xl border overflow-hidden"
           style={{ borderColor: "#ece6dd", backgroundColor: "#fff" }}
         >
           {/* Left panel */}

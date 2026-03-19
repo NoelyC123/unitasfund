@@ -5,10 +5,10 @@ export default function AuthLayout({
 }) {
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-4"
+      className="min-h-screen px-4"
       style={{ backgroundColor: "#f7f4ef" }}
     >
-      <div className="w-full max-w-md">{children}</div>
+      <div className="w-full">{children}</div>
     </div>
   );
 }
